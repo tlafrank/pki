@@ -10,6 +10,7 @@ INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR:-/opt/pki/intermediate-
 LEAF_OUTPUT_DIR="${LEAF_OUTPUT_DIR:-$INTERMEDIATE_CA_OUTPUT_DIR/leaf}"
 LEAF_CONFIG_FILE="${LEAF_CONFIG_FILE:-../intermediate_ca/intermediate_ca.cnf}"
 DAYS="${DAYS:-825}"
+DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING="${DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING:-1}"
 GENERATE_LEAF_CSR_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/generate_leaf_csr.sh"
 SIGN_LEAF_CSR_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sign_leaf_csr.sh"
 
@@ -103,8 +104,24 @@ openssl pkcs12 -export \
   -passout "pass:$P12_PASSWORD"
 chmod 400 "$P12_FILE"
 
+# Remove the plaintext private key after successful packaging by default.
+if [ "$DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING" = "1" ]; then
+  if [ -f "$KEY_FILE" ]; then
+    chmod 600 "$KEY_FILE" || true
+    if command -v shred >/dev/null 2>&1; then
+      shred -u "$KEY_FILE"
+    else
+      rm -f "$KEY_FILE"
+    fi
+  fi
+fi
+
 echo
 echo "Leaf keypair, certificate and P12 package created successfully."
-echo "Private key: $KEY_FILE"
+if [ "$DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING" = "1" ]; then
+  echo "Private key deleted after packaging."
+else
+  echo "Private key: $KEY_FILE"
+fi
 echo "Certificate: $CERT_FILE"
 echo "P12 file:    $P12_FILE"

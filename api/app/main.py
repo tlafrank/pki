@@ -10,13 +10,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from queue import Queue
 from typing import Any, Dict, List, Literal, Optional
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 SCRIPTS_DIR = BASE_DIR / "scripts"
+ARTIFACTS_DIR = Path(os.environ.get("PKI_ARTIFACTS_DIR", "/tmp/pki-control-plane-artifacts"))
+ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class CreateIntermediateRequest(BaseModel):
@@ -69,6 +73,32 @@ class JobResponse(BaseModel):
     return_code: Optional[int]
     stdout: str
     stderr: str
+
+
+class LeafBatchItem(BaseModel):
+    profile: Literal["server", "admin", "client"]
+    common_name: str = Field(min_length=1)
+    p12_password: str = Field(min_length=1)
+    san_dns: List[str] = Field(default_factory=list)
+    san_ips: List[str] = Field(default_factory=list)
+
+
+class CreateLeafBatchRequest(BaseModel):
+    items: List[LeafBatchItem] = Field(min_length=1, max_length=250)
+    intermediate_ca_output_dir: Optional[str] = None
+    leaf_output_dir: Optional[str] = None
+    leaf_config_file: Optional[str] = None
+    days: Optional[int] = Field(default=None, ge=1)
+    org: Optional[str] = None
+
+
+class BatchCreateLeafResponse(BaseModel):
+    artifact_id: str
+    filename: str
+    download_url: str
+    generated_count: int
+    failed_count: int
+    failures: List[str]
 
 
 @dataclass
@@ -136,6 +166,7 @@ class JobManager:
 
 
 job_manager = JobManager()
+artifact_files: Dict[str, Path] = {}
 
 app = FastAPI(title="PKI Control Plane API", version="0.1.0")
 app.add_middleware(
@@ -175,9 +206,36 @@ def _job_response(job: Job) -> JobResponse:
     )
 
 
+def _sanitize_filename(value: str) -> str:
+    keep = [c if c.isalnum() or c in ("-", "_", ".") else "-" for c in value.strip()]
+    sanitized = "".join(keep).strip("-._")
+    return sanitized or "artifact"
+
+
+def _validate_server_sans(profile: str, san_dns: List[str], san_ips: List[str]) -> None:
+    if profile == "server" and not san_dns and not san_ips:
+        raise HTTPException(
+            status_code=400,
+            detail="Server profile requires at least one SAN entry in san_dns or san_ips.",
+        )
+
+
 @app.get("/health")
 def health() -> Dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/templates/leaf-batch.csv", response_class=PlainTextResponse)
+def leaf_batch_template() -> str:
+    # SAN columns use semicolon-delimited values inside the CSV cell.
+    return (
+        "profile,common_name,p12_password,san_dns,san_ips\n"
+        ",,,,\n"
+        ",,,,\n"
+        ",,,,\n"
+        ",,,,\n"
+        ",,,,\n"
+    )
 
 
 @app.post("/jobs/create-intermediate-ca", response_model=JobResponse)
@@ -230,11 +288,7 @@ def sign_intermediate_csr(req: SignIntermediateRequest) -> JobResponse:
 
 @app.post("/jobs/create-leaf-p12", response_model=JobResponse)
 def create_leaf_p12(req: CreateLeafP12Request) -> JobResponse:
-    if req.profile == "server" and not req.san_dns and not req.san_ips:
-        raise HTTPException(
-            status_code=400,
-            detail="Server profile requires at least one SAN entry in san_dns or san_ips.",
-        )
+    _validate_server_sans(req.profile, req.san_dns, req.san_ips)
 
     env = _base_env()
     if req.intermediate_ca_output_dir:
@@ -264,6 +318,103 @@ def create_leaf_p12(req: CreateLeafP12Request) -> JobResponse:
         env,
     )
     return _job_response(job)
+
+
+@app.post("/batch/create-leaf-p12", response_model=BatchCreateLeafResponse)
+def batch_create_leaf_p12(req: CreateLeafBatchRequest) -> BatchCreateLeafResponse:
+    env_base = _base_env()
+    if req.intermediate_ca_output_dir:
+        env_base["INTERMEDIATE_CA_OUTPUT_DIR"] = req.intermediate_ca_output_dir
+    if req.leaf_output_dir:
+        env_base["LEAF_OUTPUT_DIR"] = req.leaf_output_dir
+    if req.leaf_config_file:
+        env_base["LEAF_CONFIG_FILE"] = req.leaf_config_file
+    if req.days:
+        env_base["DAYS"] = str(req.days)
+    if req.org:
+        env_base["ORG"] = req.org
+
+    intermediate_dir = env_base.get("INTERMEDIATE_CA_OUTPUT_DIR", "/opt/pki/intermediate-ca")
+    leaf_base_dir = env_base.get("LEAF_OUTPUT_DIR", f"{intermediate_dir}/leaf")
+    failures: List[str] = []
+    generated: List[tuple[LeafBatchItem, Path]] = []
+
+    for item in req.items:
+        _validate_server_sans(item.profile, item.san_dns, item.san_ips)
+        env = env_base.copy()
+        if item.san_dns:
+            env["SAN_DNS_LIST"] = ",".join(item.san_dns)
+        if item.san_ips:
+            env["SAN_IP_LIST"] = ",".join(item.san_ips)
+
+        command = [
+            "bash",
+            _script_path("create_sign_package_leaf.sh"),
+            item.profile,
+            item.common_name,
+            item.p12_password,
+        ]
+        completed = subprocess.run(
+            command,
+            env=env,
+            cwd=BASE_DIR,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            message = completed.stderr.strip() or completed.stdout.strip() or "unknown script error"
+            failures.append(f"{item.common_name} ({item.profile}): {message}")
+            continue
+
+        expected_p12 = Path(leaf_base_dir) / item.profile / "export" / f"{item.common_name}.p12"
+        if not expected_p12.exists():
+            failures.append(
+                f"{item.common_name} ({item.profile}): expected output not found: {expected_p12}"
+            )
+            continue
+        generated.append((item, expected_p12))
+
+    if not generated:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "No certificate packages were generated.",
+                "failures": failures,
+            },
+        )
+
+    artifact_id = str(uuid.uuid4())
+    zip_filename = f"leaf-packages-{artifact_id}.zip"
+    zip_path = ARTIFACTS_DIR / zip_filename
+
+    with ZipFile(zip_path, mode="w", compression=ZIP_DEFLATED) as archive:
+        for item, p12_path in generated:
+            arcname = f"{_sanitize_filename(item.profile)}/{_sanitize_filename(p12_path.name)}"
+            archive.write(p12_path, arcname=arcname)
+
+        manifest_lines = ["profile,common_name,p12_filename"]
+        for item, p12_path in generated:
+            manifest_lines.append(f"{item.profile},{item.common_name},{p12_path.name}")
+        archive.writestr("manifest.csv", "\n".join(manifest_lines) + "\n")
+
+    artifact_files[artifact_id] = zip_path
+    return BatchCreateLeafResponse(
+        artifact_id=artifact_id,
+        filename=zip_filename,
+        download_url=f"/downloads/{artifact_id}",
+        generated_count=len(generated),
+        failed_count=len(failures),
+        failures=failures,
+    )
+
+
+@app.get("/downloads/{artifact_id}")
+def download_artifact(artifact_id: str) -> FileResponse:
+    path = artifact_files.get(artifact_id)
+    if path is None or not path.exists():
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    return FileResponse(path, media_type="application/zip", filename=path.name)
 
 
 @app.post("/jobs/sign-leaf-csr", response_model=JobResponse)

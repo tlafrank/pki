@@ -10,6 +10,7 @@ This repository now includes:
 
 - `api`: FastAPI service with in-memory queue + background worker thread.
 - `web`: static HTML/JS app hosted by NGINX in Docker.
+  - supports downloading a blank CSV batch template, importing populated CSV rows, and downloading a ZIP of generated P12 packages.
 
 ## Run locally with Docker
 
@@ -28,6 +29,14 @@ docker compose up --build
 - `POST /jobs/create-leaf-p12`
 - `POST /jobs/sign-leaf-csr`
 - `GET /jobs/{job_id}`
+- `GET /templates/leaf-batch.csv`
+- `POST /batch/create-leaf-p12`
+- `GET /downloads/{artifact_id}`
+
+## Key handling
+
+- `create_sign_package_leaf.sh` now deletes the generated leaf private key after successful PKCS#12 packaging by default.
+- To retain private keys on disk, set `DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING=0` before running the workflow.
 
 ## Test API
 

@@ -13,6 +13,9 @@
 
       <section>
         <h2>Create leaf P12</h2>
+        <p>
+          <button id="download-template" type="button">Download Batch Template (CSV)</button>
+        </p>
         <form id="leaf-form">
           <label>API URL <input id="api-url" value="http://localhost:8000" /></label>
           <label>Profile
@@ -28,6 +31,16 @@
           <label>SAN IP (comma-separated) <input id="san-ips" placeholder="10.0.0.10" /></label>
           <button type="submit">Submit Job</button>
         </form>
+      </section>
+
+      <section>
+        <h2>Batch import (CSV)</h2>
+        <p>Populate the template and import it to generate multiple certificate packages at once.</p>
+        <div class="job-controls">
+          <label>Template CSV <input id="batch-file" type="file" accept=".csv,text/csv" /></label>
+          <button id="submit-batch" type="button">Generate Batch ZIP</button>
+        </div>
+        <p id="batch-download"></p>
       </section>
 
       <section>
