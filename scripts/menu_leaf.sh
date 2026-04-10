@@ -2,8 +2,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LEAF_SIGN_CSR_SCRIPT="${SCRIPT_DIR}/sign_leaf_csr.sh"
-LEAF_CREATE_SIGN_PACKAGE_SCRIPT="${SCRIPT_DIR}/create_sign_package_leaf.sh"
+# Leaf submenu is intentionally CSR-focused only.
+# Signing and packaging actions are performed in the intermediate menu.
+GENERATE_LEAF_CSR_SCRIPT="${SCRIPT_DIR}/generate_leaf_csr.sh"
 
 require_root() {
   if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
@@ -14,6 +15,7 @@ require_root() {
 }
 
 run_script() {
+  # Consistent launcher used by all menu actions.
   local script_path="$1"
   shift || true
 
@@ -36,8 +38,9 @@ Usage:
   $(basename "$0") <action> [args ...]
 
 Actions:
-  1 | sign-leaf-csr            Run ${LEAF_SIGN_CSR_SCRIPT##*/} <csr-path>
-  2 | create-sign-package-leaf Run ${LEAF_CREATE_SIGN_PACKAGE_SCRIPT##*/} <common-name> <p12-password>
+  1 | generate-server-csr      Run ${GENERATE_LEAF_CSR_SCRIPT##*/} server <common-name>
+  2 | generate-admin-csr       Run ${GENERATE_LEAF_CSR_SCRIPT##*/} admin <common-name>
+  3 | generate-client-csr      Run ${GENERATE_LEAF_CSR_SCRIPT##*/} client <common-name>
   h | help                     Show this help text
   q | quit                     Exit this menu
 EOF
@@ -51,8 +54,9 @@ interactive_menu() {
 ========================================
  Leaf Actions
 ========================================
-1) Sign leaf CSR
-2) Create keypair, sign and package leaf certificate
+1) Generate server CSR
+2) Generate admin CSR
+3) Generate client CSR
 h) Help
 q) Back
 EOF
@@ -61,14 +65,16 @@ EOF
 
     case "$choice" in
       1)
-        read -r -p "Path to leaf CSR: " csr_path
-        run_script "$LEAF_SIGN_CSR_SCRIPT" "$csr_path"
+        read -r -p "Server common name: " leaf_cn
+        run_script "$GENERATE_LEAF_CSR_SCRIPT" server "$leaf_cn"
         ;;
       2)
-        read -r -p "Leaf common name: " leaf_cn
-        read -r -s -p "P12 password: " p12_password
-        echo
-        run_script "$LEAF_CREATE_SIGN_PACKAGE_SCRIPT" "$leaf_cn" "$p12_password"
+        read -r -p "Admin common name: " leaf_cn
+        run_script "$GENERATE_LEAF_CSR_SCRIPT" admin "$leaf_cn"
+        ;;
+      3)
+        read -r -p "Client common name: " leaf_cn
+        run_script "$GENERATE_LEAF_CSR_SCRIPT" client "$leaf_cn"
         ;;
       h|H)
         print_usage
@@ -88,13 +94,17 @@ main() {
 
   if [[ $# -gt 0 ]]; then
     case "$1" in
-      1|sign-leaf-csr)
+      1|generate-server-csr)
         shift
-        run_script "$LEAF_SIGN_CSR_SCRIPT" "$@"
+        run_script "$GENERATE_LEAF_CSR_SCRIPT" server "$@"
         ;;
-      2|create-sign-package-leaf)
+      2|generate-admin-csr)
         shift
-        run_script "$LEAF_CREATE_SIGN_PACKAGE_SCRIPT" "$@"
+        run_script "$GENERATE_LEAF_CSR_SCRIPT" admin "$@"
+        ;;
+      3|generate-client-csr)
+        shift
+        run_script "$GENERATE_LEAF_CSR_SCRIPT" client "$@"
         ;;
       h|help|-h|--help)
         print_usage

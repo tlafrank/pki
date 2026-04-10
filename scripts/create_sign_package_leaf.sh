@@ -2,12 +2,16 @@
 set -euo pipefail
 
 # --- User-tunable defaults -------------------------------------------------
+# This script creates/signs/packages a leaf certificate for a profile:
+#   server, admin, client
+# Example:
+#   ./create_sign_package_leaf.sh server api.example.internal 'strong-password'
 INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR:-/opt/pki/intermediate-ca}"
 LEAF_OUTPUT_DIR="${LEAF_OUTPUT_DIR:-$INTERMEDIATE_CA_OUTPUT_DIR/leaf}"
 LEAF_CONFIG_FILE="${LEAF_CONFIG_FILE:-../intermediate_ca/intermediate_ca.cnf}"
 DAYS="${DAYS:-825}"
-ORG="${ORG:-Example Org PKI}"
-OU="${OU:-Leaf Certificates}"
+GENERATE_LEAF_CSR_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/generate_leaf_csr.sh"
+SIGN_LEAF_CSR_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sign_leaf_csr.sh"
 
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
   echo "Error: create_sign_package_leaf.sh must be run as root." >&2
@@ -15,25 +19,34 @@ if [ "${EUID:-$(id -u)}" -ne 0 ]; then
   exit 1
 fi
 
-if [ $# -lt 2 ]; then
-  echo "Usage: $0 <leaf-common-name> <p12-password>" >&2
+if [ $# -lt 3 ]; then
+  echo "Usage: $0 <server|admin|client> <leaf-common-name> <p12-password>" >&2
   exit 1
 fi
 
-LEAF_CN="$1"
-P12_PASSWORD="$2"
+PROFILE="$1"
+LEAF_CN="$2"
+P12_PASSWORD="$3"
 
 if [ -z "$P12_PASSWORD" ]; then
   echo "Error: p12 password cannot be empty." >&2
   exit 1
 fi
 
-mkdir -p "$LEAF_OUTPUT_DIR" "$LEAF_OUTPUT_DIR/private" "$LEAF_OUTPUT_DIR/csr" "$LEAF_OUTPUT_DIR/certs" "$LEAF_OUTPUT_DIR/export"
+PROFILE_DIR="$LEAF_OUTPUT_DIR/$PROFILE"
+PRIVATE_DIR="$PROFILE_DIR/private"
+CSR_DIR="$PROFILE_DIR/csr"
+CERTS_DIR="$PROFILE_DIR/certs"
+EXPORT_DIR="$PROFILE_DIR/export"
 
-KEY_FILE="$LEAF_OUTPUT_DIR/private/${LEAF_CN}.key.pem"
-CSR_FILE="$LEAF_OUTPUT_DIR/csr/${LEAF_CN}.csr.pem"
-CERT_FILE="$LEAF_OUTPUT_DIR/certs/${LEAF_CN}.cert.pem"
-P12_FILE="$LEAF_OUTPUT_DIR/export/${LEAF_CN}.p12"
+# Keep artifacts grouped by profile for operational clarity.
+# Example: /opt/pki/intermediate-ca/leaf/server/{private,csr,certs,export}
+mkdir -p "$PRIVATE_DIR" "$CSR_DIR" "$CERTS_DIR" "$EXPORT_DIR"
+
+KEY_FILE="$PRIVATE_DIR/${LEAF_CN}.key.pem"
+CSR_FILE="$CSR_DIR/${LEAF_CN}.csr.pem"
+CERT_FILE="$CERTS_DIR/${LEAF_CN}.cert.pem"
+P12_FILE="$EXPORT_DIR/${LEAF_CN}.p12"
 CHAIN_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/ca-chain.cert.pem"
 
 if [ ! -f "$LEAF_CONFIG_FILE" ]; then
@@ -47,37 +60,19 @@ if [ ! -f "$CHAIN_FILE" ]; then
   exit 1
 fi
 
-if [ -f "$KEY_FILE" ]; then
-  echo "Leaf private key already exists: $KEY_FILE"
-else
-  echo "Generating leaf private key"
-  openssl genpkey \
-    -algorithm RSA \
-    -out "$KEY_FILE" \
-    -pkeyopt rsa_keygen_bits:2048
-  chmod 400 "$KEY_FILE"
-fi
+# Generate (or re-use) key + CSR using the dedicated CSR workflow script.
+"$GENERATE_LEAF_CSR_SCRIPT" "$PROFILE" "$LEAF_CN"
 
-if [ -f "$CSR_FILE" ]; then
-  echo "Leaf CSR already exists: $CSR_FILE"
-else
-  echo "Generating leaf CSR"
-  openssl req \
-    -new \
-    -sha256 \
-    -key "$KEY_FILE" \
-    -subj "/O=${ORG}/OU=${OU}/CN=${LEAF_CN}" \
-    -out "$CSR_FILE"
-  chmod 444 "$CSR_FILE"
-fi
-
+# Sign the generated CSR with the intermediate CA.
 echo "Signing leaf CSR"
 INTERMEDIATE_CA_OUTPUT_DIR="$INTERMEDIATE_CA_OUTPUT_DIR" DAYS="$DAYS" INTERMEDIATE_CA_CONFIG_FILE="$LEAF_CONFIG_FILE" \
-  "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sign_leaf_csr.sh" "$CSR_FILE"
+  "$SIGN_LEAF_CSR_SCRIPT" "$CSR_FILE"
 
+# Copy the issued cert from the intermediate cert store into the profile folder.
 cp "$INTERMEDIATE_CA_OUTPUT_DIR/certs/${LEAF_CN}.cert.pem" "$CERT_FILE"
 chmod 444 "$CERT_FILE"
 
+# Build a password-protected PKCS#12 bundle with key + cert + chain.
 echo "Packaging password-protected PKCS#12"
 openssl pkcs12 -export \
   -inkey "$KEY_FILE" \
