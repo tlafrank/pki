@@ -3,7 +3,8 @@ set -euo pipefail
 
 # --- Root CA location and defaults ------------------------------------------
 # Allow override, but default to the expected root CA location.
-ROOT_CA_OUTPUT_DIR="${ROOT_CA_OUTPUT_DIR:-/opt/pki/root_ca}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_CA_OUTPUT_DIR="${ROOT_CA_OUTPUT_DIR:-${SCRIPT_DIR}/../root_ca}"
 DAYS="${DAYS:-3650}"
 # These are only needed so root_ca.cnf can resolve $ENV::... variables in all
 # sections when OpenSSL parses the config for `openssl ca`.

@@ -4,7 +4,8 @@ set -euo pipefail
 # --- User-tunable defaults -------------------------------------------------
 # You can override any of these at runtime, for example:
 #   INTERMEDIATE_CA_OUTPUT_DIR=/tmp/intermediate-ca DAYS=3650 ./create_intermediate_ca.sh
-INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR:-/opt/pki/intermediate-ca}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR:-${SCRIPT_DIR}/../intermediate_ca}"
 DAYS="${DAYS:-3650}"
 ORG="${ORG:-Example Org PKI}"
 OU="${OU:-Intermediate CA}"
@@ -19,7 +20,7 @@ CRL_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/crl"
 CSR_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/csr"
 NEWCERTS_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/newcerts"
 PRIVATE_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/private"
-EXPORT_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/export"
+EXPORT_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/exports"
 
 KEY_FILE="$PRIVATE_DIR/intermediate-ca.key.pem"
 CSR_FILE="$CSR_DIR/intermediate-ca.csr.pem"
