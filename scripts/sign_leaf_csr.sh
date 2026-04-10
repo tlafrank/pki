@@ -12,7 +12,7 @@ DAYS="${DAYS:-825}"
 ORG="${ORG:-Example Org PKI}"
 OU="${OU:-Intermediate CA}"
 CN="${CN:-Example Intermediate CA}"
-INTERMEDIATE_CA_CONFIG_FILE="${INTERMEDIATE_CA_CONFIG_FILE:-../intermediate_ca/intermediate_ca.cnf}"
+INTERMEDIATE_CA_CONFIG_FILE="${INTERMEDIATE_CA_CONFIG_FILE:-${SCRIPT_DIR}/../intermediate_ca/intermediate_ca.cnf}"
 
 # --- Internal paths ---------------------------------------------------------
 INTERMEDIATE_CERT_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/intermediate-ca.cert.pem"

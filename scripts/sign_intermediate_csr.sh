@@ -16,9 +16,12 @@ ROOT_CERT_FILE="$ROOT_CA_OUTPUT_DIR/certs/root-ca.cert.pem"
 
 # Check that the script is being run as root.
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
-  echo "Error: sign_intermediate_csr.sh must be run as root." >&2
-  echo "Re-run with: sudo $0" >&2
-  exit 1
+  if [ "${ALLOW_NON_ROOT:-0}" != "1" ]; then
+    echo "Error: sign_intermediate_csr.sh must be run as root." >&2
+    echo "Re-run with: sudo $0" >&2
+    echo "For automation/workers, set ALLOW_NON_ROOT=1 and writable output dirs." >&2
+    exit 1
+  fi
 fi
 
 # If no argument is supplied, prompt with readline support so operators can
@@ -50,8 +53,8 @@ else
   CANDIDATE_CONFIG_FILES=(
     "$ROOT_CA_OUTPUT_DIR/root_ca.cnf"
     "$ROOT_CA_OUTPUT_DIR/root-ca.cnf"
-    "../root_ca/root_ca.cnf"
-    "../root_ca/root-ca.cnf"
+    "${SCRIPT_DIR}/../root_ca/root_ca.cnf"
+    "${SCRIPT_DIR}/../root_ca/root-ca.cnf"
   )
 
   RESOLVED_ROOT_CA_CONFIG_FILE=""
@@ -68,8 +71,8 @@ if [ -z "${RESOLVED_ROOT_CA_CONFIG_FILE:-}" ] || [ ! -f "$RESOLVED_ROOT_CA_CONFI
   echo "Checked:" >&2
   echo "  $ROOT_CA_OUTPUT_DIR/root_ca.cnf" >&2
   echo "  $ROOT_CA_OUTPUT_DIR/root-ca.cnf" >&2
-  echo "  ../root_ca/root_ca.cnf" >&2
-  echo "  ../root_ca/root-ca.cnf" >&2
+  echo "  ${SCRIPT_DIR}/../root_ca/root_ca.cnf" >&2
+  echo "  ${SCRIPT_DIR}/../root_ca/root-ca.cnf" >&2
   echo "Set ROOT_CA_CONFIG_FILE explicitly and re-run." >&2
   exit 1
 fi

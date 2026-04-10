@@ -12,7 +12,7 @@ OU="${OU:-Root CA}"
 CN="${CN:-Example Root CA}"
 
 # OpenSSL configuration file to use (kept external to this script).
-ROOT_CA_CONFIG_FILE="${ROOT_CA_CONFIG_FILE:-../root_ca/root_ca.cnf}"
+ROOT_CA_CONFIG_FILE="${ROOT_CA_CONFIG_FILE:-${SCRIPT_DIR}/../root_ca/root_ca.cnf}"
 
 # --- Internal path layout ---------------------------------------------------
 # OpenSSL's CA tooling expects these files/directories to exist.
@@ -26,11 +26,13 @@ EXPORT_DIR="$ROOT_CA_OUTPUT_DIR/exports"
 KEY_FILE="$PRIVATE_DIR/root-ca.key.pem"
 CERT_FILE="$CERTS_DIR/root-ca.cert.pem"
 
-# Check that the script is being run as root
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
-  echo "Error: create_root_ca.sh must be run as root." >&2
-  echo "Re-run with: sudo $0" >&2
-  exit 1
+  if [ "${ALLOW_NON_ROOT:-0}" != "1" ]; then
+    echo "Error: create_root_ca.sh must be run as root." >&2
+    echo "Re-run with: sudo $0" >&2
+    echo "For automation/workers, set ALLOW_NON_ROOT=1 and writable output dirs." >&2
+    exit 1
+  fi
 fi
 
 # Check that the configuration file exists
