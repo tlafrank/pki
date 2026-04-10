@@ -39,9 +39,7 @@ fi
 # Resolve output locations under the fixed root CA directory structure.
 CERTS_DIR="$ROOT_CA_OUTPUT_DIR/certs"
 EXPORT_DIR="$ROOT_CA_OUTPUT_DIR/exports"
-CSR_BASENAME="$(basename "$INTERMEDIATE_CSR_FILE")"
-CERT_BASENAME="${CSR_BASENAME/.csr.pem/.cert.pem}"
-INTERMEDIATE_CERT_FILE="$CERTS_DIR/$CERT_BASENAME"
+INTERMEDIATE_CERT_FILE="$CERTS_DIR/intermediate-ca.cert.pem"
 CHAIN_FILE="$CERTS_DIR/ca-chain-cert.pem"
 
 # Resolve the root CA OpenSSL config using a list of likely paths.
@@ -138,7 +136,6 @@ echo "Intermediate cert: $INTERMEDIATE_CERT_FILE"
 echo "Chain file:        $CHAIN_FILE"
 echo "Exports:"
 echo "  $EXPORT_DIR/intermediate-ca.cert.pem"
-echo "  $EXPORT_DIR/intermediate-ca.pem"
 echo "  $EXPORT_DIR/ca-chain-cert.pem"
 echo
 echo "Inspect created certificate with:"

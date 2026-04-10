@@ -7,6 +7,9 @@ set -euo pipefail
 #   INTERMEDIATE_CA_OUTPUT_DIR=/opt/pki/intermediate-ca DAYS=397 ./sign_leaf_csr.sh ./csr/web.csr.pem
 INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR:-/opt/pki/intermediate-ca}"
 DAYS="${DAYS:-825}"
+ORG="${ORG:-Example Org PKI}"
+OU="${OU:-Intermediate CA}"
+CN="${CN:-Example Intermediate CA}"
 INTERMEDIATE_CA_CONFIG_FILE="${INTERMEDIATE_CA_CONFIG_FILE:-../intermediate_ca/intermediate_ca.cnf}"
 
 # --- Internal paths ---------------------------------------------------------
@@ -47,7 +50,7 @@ if [ ! -f "$INTERMEDIATE_CERT_FILE" ]; then
 fi
 
 # Export values consumed by $ENV::... references in intermediate_ca.cnf.
-export INTERMEDIATE_CA_OUTPUT_DIR DAYS
+export INTERMEDIATE_CA_OUTPUT_DIR DAYS ORG OU CN
 
 # Ensure expected output directories exist.
 mkdir -p "$LEAF_CERTS_DIR" "$LEAF_EXPORT_DIR"
