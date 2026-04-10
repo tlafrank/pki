@@ -25,6 +25,13 @@ EXPORT_DIR="$ROOT_CA_OUTPUT_DIR/export"
 KEY_FILE="$PRIVATE_DIR/root-ca.key.pem"
 CERT_FILE="$CERTS_DIR/root-ca.cert.pem"
 
+
+if [ "${EUID:-$(id -u)}" -ne 0 ]; then
+  echo "Error: create_root_ca.sh must be run as root." >&2
+  echo "Re-run with: sudo $0" >&2
+  exit 1
+fi
+
 if [ ! -f "$ROOT_CA_CONFIG_FILE" ]; then
   echo "Error: OpenSSL root CA config not found: $ROOT_CA_CONFIG_FILE" >&2
   echo "Set ROOT_CA_CONFIG_FILE to the correct path and re-run." >&2
@@ -38,7 +45,7 @@ echo "Using OpenSSL config: $ROOT_CA_CONFIG_FILE"
 export ROOT_CA_OUTPUT_DIR DAYS ORG OU CN
 
 # Create the directory skeleton needed by OpenSSL CA operations.
-sudo mkdir -p \
+mkdir -p \
   "$CERTS_DIR" \
   "$CRL_DIR" \
   "$CSR_DIR" \
@@ -47,16 +54,16 @@ sudo mkdir -p \
   "$EXPORT_DIR"
 
 # Restrict private key directory access to the owner only.
-sudo chmod 700 "$PRIVATE_DIR"
+chmod 700 "$PRIVATE_DIR"
 
 # OpenSSL CA database: index of issued certs.
 if [ ! -f "$ROOT_CA_OUTPUT_DIR/index.txt" ]; then
-  sudo touch "$ROOT_CA_OUTPUT_DIR/index.txt"
+  touch "$ROOT_CA_OUTPUT_DIR/index.txt"
 fi
 
 # Starting serial number for certificates signed by this CA.
 if [ ! -f "$ROOT_CA_OUTPUT_DIR/serial" ]; then
-  echo 1000 | sudo tee "$ROOT_CA_OUTPUT_DIR/serial" >/dev/null
+  echo 1000 | tee "$ROOT_CA_OUTPUT_DIR/serial" >/dev/null
 fi
 
 if [ -f "$KEY_FILE" ]; then
@@ -64,12 +71,12 @@ if [ -f "$KEY_FILE" ]; then
 else
   echo "Generating root CA private key"
   # Generate a 4096-bit RSA private key used to sign certificates.
-  sudo openssl genpkey \
+  openssl genpkey \
     -algorithm RSA \
     -out "$KEY_FILE" \
     -pkeyopt rsa_keygen_bits:4096
   # Private key should be readable only by root/owner.
-  sudo chmod 400 "$KEY_FILE"
+  chmod 400 "$KEY_FILE"
 fi
 
 if [ -f "$CERT_FILE" ]; then
@@ -77,7 +84,7 @@ if [ -f "$CERT_FILE" ]; then
 else
   echo "Generating self-signed root CA certificate"
   # Create a self-signed X.509 root certificate from the private key.
-  sudo openssl req \
+  openssl req \
     -config "$ROOT_CA_CONFIG_FILE" \
     -key "$KEY_FILE" \
     -new -x509 \
@@ -86,21 +93,21 @@ else
     -extensions v3_root_ca \
     -out "$CERT_FILE"
   # Certificates are public material; world-readable is acceptable.
-  sudo chmod 444 "$CERT_FILE"
+  chmod 444 "$CERT_FILE"
 fi
 
 echo "Packaging root certificate"
 # PEM copy with an easy-to-share/export-friendly name.
-sudo cp "$CERT_FILE" "$EXPORT_DIR/root-ca.pem"
-sudo chmod 444 "$EXPORT_DIR/root-ca.pem"
+cp "$CERT_FILE" "$EXPORT_DIR/root-ca.pem"
+chmod 444 "$EXPORT_DIR/root-ca.pem"
 
 # CRT (PEM encoding, .crt extension) for tools that expect that extension.
-sudo openssl x509 -in "$CERT_FILE" -out "$EXPORT_DIR/root-ca.crt"
-sudo chmod 444 "$EXPORT_DIR/root-ca.crt"
+openssl x509 -in "$CERT_FILE" -out "$EXPORT_DIR/root-ca.crt"
+chmod 444 "$EXPORT_DIR/root-ca.crt"
 
 # DER (binary) encoding for platforms/import flows requiring DER certificates.
-sudo openssl x509 -in "$CERT_FILE" -outform DER -out "$EXPORT_DIR/root-ca.der"
-sudo chmod 444 "$EXPORT_DIR/root-ca.der"
+openssl x509 -in "$CERT_FILE" -outform DER -out "$EXPORT_DIR/root-ca.der"
+chmod 444 "$EXPORT_DIR/root-ca.der"
 
 echo
 echo "Root CA created successfully."
