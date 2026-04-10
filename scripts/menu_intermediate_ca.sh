@@ -29,9 +29,18 @@ run_script() {
   fi
 
   if [[ ! -x "$script_path" ]]; then
-    exec bash "$script_path" "$@"
+    bash "$script_path" "$@"
   else
-    exec "$script_path" "$@"
+    "$script_path" "$@"
+  fi
+}
+
+require_chain_file() {
+  local chain_file="${INTERMEDIATE_CA_OUTPUT_DIR:-/opt/pki/intermediate-ca}/certs/ca-chain.cert.pem"
+  if [[ ! -f "$chain_file" ]]; then
+    echo "Error: chain file not found: $chain_file" >&2
+    echo "Sign the intermediate CA first so ca-chain.cert.pem exists." >&2
+    return 1
   fi
 }
 
@@ -49,6 +58,7 @@ Actions:
   5 | sign-leaf-csr            Run ${LEAF_SIGN_CSR_SCRIPT##*/} <csr-path>
   h | help                     Show this help text
   q | quit                     Exit this menu
+  b | back                     Return to main menu (only when called from menu.sh)
 EOF
 }
 
@@ -68,6 +78,9 @@ interactive_menu() {
 h) Help
 q) Back
 EOF
+    if [[ "${FROM_MAIN_MENU:-0}" == "1" ]]; then
+      echo "b) Back to main menu"
+    fi
 
     read -r -p "Select an option: " choice
 
@@ -76,18 +89,21 @@ EOF
         run_script "$INTERMEDIATE_CA_CREATE_SCRIPT"
         ;;
       2)
+        require_chain_file || continue
         read -r -p "Server common name: " leaf_cn
         read -r -s -p "P12 password: " p12_password
         echo
         run_script "$LEAF_CREATE_SIGN_PACKAGE_SCRIPT" server "$leaf_cn" "$p12_password"
         ;;
       3)
+        require_chain_file || continue
         read -r -p "Admin common name: " leaf_cn
         read -r -s -p "P12 password: " p12_password
         echo
         run_script "$LEAF_CREATE_SIGN_PACKAGE_SCRIPT" admin "$leaf_cn" "$p12_password"
         ;;
       4)
+        require_chain_file || continue
         read -r -p "Client common name: " leaf_cn
         read -r -s -p "P12 password: " p12_password
         echo
@@ -102,6 +118,12 @@ EOF
         ;;
       q|Q)
         exit 0
+        ;;
+      b|B|back)
+        if [[ "${FROM_MAIN_MENU:-0}" == "1" ]]; then
+          return 0
+        fi
+        echo "Back is only available when called from menu.sh." >&2
         ;;
       *)
         echo "Invalid selection: $choice" >&2
@@ -121,14 +143,17 @@ main() {
         ;;
       2|generate-server-p12)
         shift
+        require_chain_file || exit 1
         run_script "$LEAF_CREATE_SIGN_PACKAGE_SCRIPT" server "$@"
         ;;
       3|generate-admin-p12)
         shift
+        require_chain_file || exit 1
         run_script "$LEAF_CREATE_SIGN_PACKAGE_SCRIPT" admin "$@"
         ;;
       4|generate-client-p12)
         shift
+        require_chain_file || exit 1
         run_script "$LEAF_CREATE_SIGN_PACKAGE_SCRIPT" client "$@"
         ;;
       5|sign-leaf-csr)

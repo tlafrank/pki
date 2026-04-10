@@ -24,9 +24,9 @@ run_script() {
   fi
 
   if [[ ! -x "$script_path" ]]; then
-    exec bash "$script_path" "$@"
+    bash "$script_path" "$@"
   else
-    exec "$script_path" "$@"
+    "$script_path" "$@"
   fi
 }
 
@@ -64,13 +64,13 @@ EOF
 
     case "$choice" in
       1)
-        run_script "$ROOT_MENU_SCRIPT"
+        FROM_MAIN_MENU=1 run_script "$ROOT_MENU_SCRIPT"
         ;;
       2)
-        run_script "$INTERMEDIATE_MENU_SCRIPT"
+        FROM_MAIN_MENU=1 run_script "$INTERMEDIATE_MENU_SCRIPT"
         ;;
       3)
-        run_script "$LEAF_MENU_SCRIPT"
+        FROM_MAIN_MENU=1 run_script "$LEAF_MENU_SCRIPT"
         ;;
       h|H)
         print_usage
@@ -92,15 +92,15 @@ main() {
     case "$1" in
       1|root-ca-actions)
         shift
-        run_script "$ROOT_MENU_SCRIPT" "$@"
+        FROM_MAIN_MENU=1 run_script "$ROOT_MENU_SCRIPT" "$@"
         ;;
       2|intermediate-ca-actions)
         shift
-        run_script "$INTERMEDIATE_MENU_SCRIPT" "$@"
+        FROM_MAIN_MENU=1 run_script "$INTERMEDIATE_MENU_SCRIPT" "$@"
         ;;
       3|leaf-actions)
         shift
-        run_script "$LEAF_MENU_SCRIPT" "$@"
+        FROM_MAIN_MENU=1 run_script "$LEAF_MENU_SCRIPT" "$@"
         ;;
       h|help|-h|--help)
         print_usage

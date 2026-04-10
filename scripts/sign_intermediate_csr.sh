@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# --- Fixed root CA location -------------------------------------------------
-# This script is intentionally limited to the root CA host layout.
-ROOT_CA_OUTPUT_DIR="/opt/pki/root_ca"
+# --- Root CA location and defaults ------------------------------------------
+# Allow override, but default to the expected root CA location.
+ROOT_CA_OUTPUT_DIR="${ROOT_CA_OUTPUT_DIR:-/opt/pki/root_ca}"
 DAYS="${DAYS:-3650}"
-
-# OpenSSL configuration file for the signing CA (root CA).
-ROOT_CA_CONFIG_FILE="${ROOT_CA_CONFIG_FILE:-$ROOT_CA_OUTPUT_DIR/root_ca.cnf}"
 
 ROOT_CERT_FILE="$ROOT_CA_OUTPUT_DIR/certs/root-ca.cert.pem"
 
@@ -18,12 +15,16 @@ if [ "${EUID:-$(id -u)}" -ne 0 ]; then
   exit 1
 fi
 
-if [ $# -ne 1 ]; then
+# If no argument is supplied, prompt with readline support so operators can
+# use tab completion for path navigation.
+if [ $# -eq 0 ]; then
+  read -r -e -p "Path to intermediate CSR: " INTERMEDIATE_CSR_FILE
+elif [ $# -eq 1 ]; then
+  INTERMEDIATE_CSR_FILE="$1"
+else
   echo "Usage: $0 <path-to-intermediate-csr>" >&2
   exit 1
 fi
-
-INTERMEDIATE_CSR_FILE="$1"
 
 if [ ! -f "$INTERMEDIATE_CSR_FILE" ]; then
   echo "Error: intermediate CA CSR not found: $INTERMEDIATE_CSR_FILE" >&2
@@ -38,18 +39,49 @@ CERT_BASENAME="${CSR_BASENAME/.csr.pem/.cert.pem}"
 INTERMEDIATE_CERT_FILE="$CERTS_DIR/$CERT_BASENAME"
 CHAIN_FILE="$CERTS_DIR/ca-chain.cert.pem"
 
-# Check that the root CA configuration file exists.
-if [ ! -f "$ROOT_CA_CONFIG_FILE" ]; then
-  echo "Error: OpenSSL root CA config not found: $ROOT_CA_CONFIG_FILE" >&2
-  echo "Set ROOT_CA_CONFIG_FILE to the correct path and re-run." >&2
+# Resolve the root CA OpenSSL config using a list of likely paths.
+if [ -n "${ROOT_CA_CONFIG_FILE:-}" ]; then
+  RESOLVED_ROOT_CA_CONFIG_FILE="$ROOT_CA_CONFIG_FILE"
+else
+  CANDIDATE_CONFIG_FILES=(
+    "$ROOT_CA_OUTPUT_DIR/root_ca.cnf"
+    "$ROOT_CA_OUTPUT_DIR/root-ca.cnf"
+    "../root_ca/root_ca.cnf"
+    "../root_ca/root-ca.cnf"
+  )
+
+  RESOLVED_ROOT_CA_CONFIG_FILE=""
+  for candidate in "${CANDIDATE_CONFIG_FILES[@]}"; do
+    if [ -f "$candidate" ]; then
+      RESOLVED_ROOT_CA_CONFIG_FILE="$candidate"
+      break
+    fi
+  done
+fi
+
+if [ -z "${RESOLVED_ROOT_CA_CONFIG_FILE:-}" ] || [ ! -f "$RESOLVED_ROOT_CA_CONFIG_FILE" ]; then
+  echo "Error: OpenSSL root CA config not found." >&2
+  echo "Checked:" >&2
+  echo "  $ROOT_CA_OUTPUT_DIR/root_ca.cnf" >&2
+  echo "  $ROOT_CA_OUTPUT_DIR/root-ca.cnf" >&2
+  echo "  ../root_ca/root_ca.cnf" >&2
+  echo "  ../root_ca/root-ca.cnf" >&2
+  echo "Set ROOT_CA_CONFIG_FILE explicitly and re-run." >&2
   exit 1
 fi
 
 # Check prerequisite root CA artifacts.
 if [ ! -f "$ROOT_CERT_FILE" ]; then
-  echo "Error: root CA certificate not found: $ROOT_CERT_FILE" >&2
-  echo "Run create_root_ca.sh first (or set ROOT_CA_OUTPUT_DIR)." >&2
-  exit 1
+  ALT_ROOT_CA_OUTPUT_DIR="/opt/pki/root-ca"
+  ALT_ROOT_CERT_FILE="$ALT_ROOT_CA_OUTPUT_DIR/certs/root-ca.cert.pem"
+  if [ -f "$ALT_ROOT_CERT_FILE" ]; then
+    ROOT_CA_OUTPUT_DIR="$ALT_ROOT_CA_OUTPUT_DIR"
+    ROOT_CERT_FILE="$ALT_ROOT_CERT_FILE"
+  else
+    echo "Error: root CA certificate not found: $ROOT_CERT_FILE" >&2
+    echo "Run create_root_ca.sh first (or set ROOT_CA_OUTPUT_DIR)." >&2
+    exit 1
+  fi
 fi
 
 # Export values consumed by $ENV::... references in the root CA config.
@@ -65,7 +97,7 @@ else
   echo "Signing intermediate CA CSR with root CA"
   # Use the root CA policy and v3_intermediate_ca extension set from root_ca.cnf.
   openssl ca \
-    -config "$ROOT_CA_CONFIG_FILE" \
+    -config "$RESOLVED_ROOT_CA_CONFIG_FILE" \
     -extensions v3_intermediate_ca \
     -days "$DAYS" \
     -notext \

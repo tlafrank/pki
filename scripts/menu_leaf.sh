@@ -25,9 +25,9 @@ run_script() {
   fi
 
   if [[ ! -x "$script_path" ]]; then
-    exec bash "$script_path" "$@"
+    bash "$script_path" "$@"
   else
-    exec "$script_path" "$@"
+    "$script_path" "$@"
   fi
 }
 
@@ -43,6 +43,7 @@ Actions:
   3 | generate-client-csr      Run ${GENERATE_LEAF_CSR_SCRIPT##*/} client <common-name>
   h | help                     Show this help text
   q | quit                     Exit this menu
+  b | back                     Return to main menu (only when called from menu.sh)
 EOF
 }
 
@@ -60,6 +61,9 @@ interactive_menu() {
 h) Help
 q) Back
 EOF
+    if [[ "${FROM_MAIN_MENU:-0}" == "1" ]]; then
+      echo "b) Back to main menu"
+    fi
 
     read -r -p "Select an option: " choice
 
@@ -81,6 +85,12 @@ EOF
         ;;
       q|Q)
         exit 0
+        ;;
+      b|B|back)
+        if [[ "${FROM_MAIN_MENU:-0}" == "1" ]]; then
+          return 0
+        fi
+        echo "Back is only available when called from menu.sh." >&2
         ;;
       *)
         echo "Invalid selection: $choice" >&2
