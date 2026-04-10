@@ -6,8 +6,9 @@ set -euo pipefail
 #   server, admin, client.
 # Example:
 #   ORG="Example Org PKI" ./generate_leaf_csr.sh server api.example.internal
-INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR:-/opt/pki/intermediate-ca}"
-LEAF_OUTPUT_DIR="${LEAF_OUTPUT_DIR:-$INTERMEDIATE_CA_OUTPUT_DIR/leaf}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR:-${SCRIPT_DIR}/../intermediate_ca}"
+LEAF_OUTPUT_DIR="${LEAF_OUTPUT_DIR:-${SCRIPT_DIR}/../leaf}"
 ORG="${ORG:-Example Org PKI}"
 
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then

@@ -6,13 +6,14 @@ set -euo pipefail
 #   server, admin, client
 # Example:
 #   ./create_sign_package_leaf.sh server api.example.internal 'strong-password'
-INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR:-/opt/pki/intermediate-ca}"
-LEAF_OUTPUT_DIR="${LEAF_OUTPUT_DIR:-$INTERMEDIATE_CA_OUTPUT_DIR/leaf}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR:-${SCRIPT_DIR}/../intermediate_ca}"
+LEAF_OUTPUT_DIR="${LEAF_OUTPUT_DIR:-${SCRIPT_DIR}/../leaf}"
 LEAF_CONFIG_FILE="${LEAF_CONFIG_FILE:-../intermediate_ca/intermediate_ca.cnf}"
 DAYS="${DAYS:-825}"
 DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING="${DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING:-1}"
-GENERATE_LEAF_CSR_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/generate_leaf_csr.sh"
-SIGN_LEAF_CSR_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sign_leaf_csr.sh"
+GENERATE_LEAF_CSR_SCRIPT="${SCRIPT_DIR}/generate_leaf_csr.sh"
+SIGN_LEAF_CSR_SCRIPT="${SCRIPT_DIR}/sign_leaf_csr.sh"
 
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
   if [ "${ALLOW_NON_ROOT:-0}" != "1" ]; then
@@ -59,16 +60,16 @@ PROFILE_DIR="$LEAF_OUTPUT_DIR/$PROFILE"
 PRIVATE_DIR="$PROFILE_DIR/private"
 CSR_DIR="$PROFILE_DIR/csr"
 CERTS_DIR="$PROFILE_DIR/certs"
-EXPORT_DIR="$PROFILE_DIR/export"
+EXPORT_DIR="$LEAF_OUTPUT_DIR/exports"
 
 # Keep artifacts grouped by profile for operational clarity.
-# Example: /opt/pki/intermediate-ca/leaf/server/{private,csr,certs,export}
+# Example: ../leaf/server/{private,csr,certs} plus ../leaf/exports
 mkdir -p "$PRIVATE_DIR" "$CSR_DIR" "$CERTS_DIR" "$EXPORT_DIR"
 
 KEY_FILE="$PRIVATE_DIR/${LEAF_CN}.key.pem"
 CSR_FILE="$CSR_DIR/${LEAF_CN}.csr.pem"
 CERT_FILE="$CERTS_DIR/${LEAF_CN}.cert.pem"
-P12_FILE="$EXPORT_DIR/${LEAF_CN}.p12"
+P12_FILE="$EXPORT_DIR/${PROFILE}-${LEAF_CN}.p12"
 CHAIN_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/ca-chain-cert.pem"
 
 if [ ! -f "$LEAF_CONFIG_FILE" ]; then
@@ -88,7 +89,7 @@ fi
 # Sign the generated CSR with the intermediate CA.
 echo "Signing leaf CSR"
 INTERMEDIATE_CA_OUTPUT_DIR="$INTERMEDIATE_CA_OUTPUT_DIR" DAYS="$DAYS" INTERMEDIATE_CA_CONFIG_FILE="$LEAF_CONFIG_FILE" \
-  "$SIGN_LEAF_CSR_SCRIPT" "$CSR_FILE"
+  LEAF_OUTPUT_DIR="$LEAF_OUTPUT_DIR" "$SIGN_LEAF_CSR_SCRIPT" "$CSR_FILE"
 
 # Copy the issued cert from the intermediate cert store into the profile folder.
 cp "$INTERMEDIATE_CA_OUTPUT_DIR/certs/${LEAF_CN}.cert.pem" "$CERT_FILE"

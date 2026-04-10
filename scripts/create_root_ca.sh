@@ -4,7 +4,8 @@ set -euo pipefail
 # --- User-tunable defaults -------------------------------------------------
 # You can override any of these at runtime, for example:
 #   ROOT_CA_OUTPUT_DIR=/tmp/root_ca DAYS=3650 ./create_root_ca.sh
-ROOT_CA_OUTPUT_DIR="${ROOT_CA_OUTPUT_DIR:-/opt/pki/root_ca}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_CA_OUTPUT_DIR="${ROOT_CA_OUTPUT_DIR:-${SCRIPT_DIR}/../root_ca}"
 DAYS="${DAYS:-7300}"
 ORG="${ORG:-Example Org PKI}"
 OU="${OU:-Root CA}"

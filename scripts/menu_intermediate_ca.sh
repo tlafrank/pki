@@ -2,6 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR="${SCRIPT_DIR}/../intermediate_ca"
 # Intermediate CA submenu owns tasks performed by the intermediate tier:
 # - bootstrap intermediate CA key+CSR
 # - issue leaf credentials and package PKCS#12 bundles
@@ -36,7 +37,7 @@ run_script() {
 }
 
 require_chain_file() {
-  local chain_file="${INTERMEDIATE_CA_OUTPUT_DIR:-/opt/pki/intermediate-ca}/certs/ca-chain-cert.pem"
+  local chain_file="${INTERMEDIATE_CA_OUTPUT_DIR:-$DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR}/certs/ca-chain-cert.pem"
   if [[ ! -f "$chain_file" ]]; then
     echo "Error: chain file not found: $chain_file" >&2
     echo "Sign the intermediate CA first so ca-chain-cert.pem exists." >&2
@@ -45,7 +46,7 @@ require_chain_file() {
 }
 
 require_intermediate_certificate() {
-  local intermediate_cert="${INTERMEDIATE_CA_OUTPUT_DIR:-/opt/pki/intermediate-ca}/certs/intermediate-ca.cert.pem"
+  local intermediate_cert="${INTERMEDIATE_CA_OUTPUT_DIR:-$DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR}/certs/intermediate-ca.cert.pem"
   if [[ ! -f "$intermediate_cert" ]]; then
     echo "Error: intermediate CA certificate not found: $intermediate_cert" >&2
     echo "Sign the intermediate CA first." >&2

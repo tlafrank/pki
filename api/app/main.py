@@ -334,8 +334,8 @@ def batch_create_leaf_p12(req: CreateLeafBatchRequest) -> BatchCreateLeafRespons
     if req.org:
         env_base["ORG"] = req.org
 
-    intermediate_dir = env_base.get("INTERMEDIATE_CA_OUTPUT_DIR", "/opt/pki/intermediate-ca")
-    leaf_base_dir = env_base.get("LEAF_OUTPUT_DIR", f"{intermediate_dir}/leaf")
+    intermediate_dir = env_base.get("INTERMEDIATE_CA_OUTPUT_DIR", str(BASE_DIR / "intermediate_ca"))
+    leaf_base_dir = env_base.get("LEAF_OUTPUT_DIR", str(BASE_DIR / "leaf"))
     failures: List[str] = []
     generated: List[tuple[LeafBatchItem, Path]] = []
 
@@ -367,7 +367,7 @@ def batch_create_leaf_p12(req: CreateLeafBatchRequest) -> BatchCreateLeafRespons
             failures.append(f"{item.common_name} ({item.profile}): {message}")
             continue
 
-        expected_p12 = Path(leaf_base_dir) / item.profile / "export" / f"{item.common_name}.p12"
+        expected_p12 = Path(leaf_base_dir) / "exports" / f"{item.profile}-{item.common_name}.p12"
         if not expected_p12.exists():
             failures.append(
                 f"{item.common_name} ({item.profile}): expected output not found: {expected_p12}"
