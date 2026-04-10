@@ -9,6 +9,15 @@ INTERMEDIATE_CA_SIGN_CSR_SCRIPT="${SCRIPT_DIR}/sign_intermediate_csr.sh"
 CLIENT_CSR_SIGN_SCRIPT="${SCRIPT_DIR}/sign_client_csr.sh"
 CLIENT_CREATE_SIGN_PACKAGE_SCRIPT="${SCRIPT_DIR}/create_sign_package_client.sh"
 
+
+require_root() {
+  if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+    echo "Error: menu.sh must be run as root." >&2
+    echo "Re-run with: sudo $0" >&2
+    exit 1
+  fi
+}
+
 print_header() {
   cat <<'EOF'
 ========================================
@@ -142,6 +151,8 @@ EOF
 }
 
 main() {
+  require_root
+
   if [[ $# -gt 0 ]]; then
     dispatch_action "$@"
   else

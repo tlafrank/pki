@@ -1,12 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# --- User-tunable defaults -------------------------------------------------
+# You can override any of these at runtime, for example:
+#   ROOT_CA_OUTPUT_DIR=/tmp/root-ca DAYS=3650 ./create_root_ca.sh
 ROOT_CA_OUTPUT_DIR="${ROOT_CA_OUTPUT_DIR:-/opt/pki/root-ca}"
 DAYS="${DAYS:-7300}"
 ORG="${ORG:-Example Org PKI}"
 OU="${OU:-Root CA}"
 CN="${CN:-Example Root CA}"
 
+# OpenSSL configuration file to use (kept external to this script).
+ROOT_CA_CONFIG_FILE="${ROOT_CA_CONFIG_FILE:-/pki/root_ca/root_ca.cnf}"
+
+# --- Internal path layout ---------------------------------------------------
+# OpenSSL's CA tooling expects these files/directories to exist.
 CERTS_DIR="$ROOT_CA_OUTPUT_DIR/certs"
 CRL_DIR="$ROOT_CA_OUTPUT_DIR/crl"
 CSR_DIR="$ROOT_CA_OUTPUT_DIR/csr"
@@ -14,13 +22,30 @@ NEWCERTS_DIR="$ROOT_CA_OUTPUT_DIR/newcerts"
 PRIVATE_DIR="$ROOT_CA_OUTPUT_DIR/private"
 EXPORT_DIR="$ROOT_CA_OUTPUT_DIR/export"
 
-CONFIG_FILE="../root_CA/root.cnf"
 KEY_FILE="$PRIVATE_DIR/root-ca.key.pem"
 CERT_FILE="$CERTS_DIR/root-ca.cert.pem"
 
-echo "Initialising root CA at: $ROOT_CA_OUTPUT_DIR"
 
-sudo mkdir -p \
+if [ "${EUID:-$(id -u)}" -ne 0 ]; then
+  echo "Error: create_root_ca.sh must be run as root." >&2
+  echo "Re-run with: sudo $0" >&2
+  exit 1
+fi
+
+if [ ! -f "$ROOT_CA_CONFIG_FILE" ]; then
+  echo "Error: OpenSSL root CA config not found: $ROOT_CA_CONFIG_FILE" >&2
+  echo "Set ROOT_CA_CONFIG_FILE to the correct path and re-run." >&2
+  exit 1
+fi
+
+echo "Initialising root CA at: $ROOT_CA_OUTPUT_DIR"
+echo "Using OpenSSL config: $ROOT_CA_CONFIG_FILE"
+
+# Export variables so OpenSSL config can consume them through $ENV::... values.
+export ROOT_CA_OUTPUT_DIR DAYS ORG OU CN
+
+# Create the directory skeleton needed by OpenSSL CA operations.
+mkdir -p \
   "$CERTS_DIR" \
   "$CRL_DIR" \
   "$CSR_DIR" \
@@ -28,62 +53,67 @@ sudo mkdir -p \
   "$PRIVATE_DIR" \
   "$EXPORT_DIR"
 
-sudo chmod 700 "$PRIVATE_DIR"
+# Restrict private key directory access to the owner only.
+chmod 700 "$PRIVATE_DIR"
 
-#Create the OpenSSL CA database file, if it doesn't already exist.
+# OpenSSL CA database: index of issued certs.
 if [ ! -f "$ROOT_CA_OUTPUT_DIR/index.txt" ]; then
-  sudo touch "$ROOT_CA_OUTPUT_DIR/index.txt"
+  touch "$ROOT_CA_OUTPUT_DIR/index.txt"
 fi
 
+# Starting serial number for certificates signed by this CA.
 if [ ! -f "$ROOT_CA_OUTPUT_DIR/serial" ]; then
-  echo 1000 | sudo tee "$ROOT_CA_OUTPUT_DIR/serial" >/dev/null
+  echo 1000 | tee "$ROOT_CA_OUTPUT_DIR/serial" >/dev/null
 fi
-
-echo "Writing OpenSSL config: $CONFIG_FILE"
-
-sudo tee "$CONFIG_FILE" >/dev/null <<EOF
-EOF
 
 if [ -f "$KEY_FILE" ]; then
   echo "Root CA private key already exists: $KEY_FILE"
 else
   echo "Generating root CA private key"
-  sudo openssl genpkey \
+  # Generate a 4096-bit RSA private key used to sign certificates.
+  openssl genpkey \
     -algorithm RSA \
     -out "$KEY_FILE" \
     -pkeyopt rsa_keygen_bits:4096
-  sudo chmod 400 "$KEY_FILE"
+  # Private key should be readable only by root/owner.
+  chmod 400 "$KEY_FILE"
 fi
 
 if [ -f "$CERT_FILE" ]; then
   echo "Root CA certificate already exists: $CERT_FILE"
 else
   echo "Generating self-signed root CA certificate"
-  sudo openssl req \
-    -config "$CONFIG_FILE" \
+  # Create a self-signed X.509 root certificate from the private key.
+  openssl req \
+    -config "$ROOT_CA_CONFIG_FILE" \
     -key "$KEY_FILE" \
     -new -x509 \
     -days "$DAYS" \
     -sha256 \
     -extensions v3_root_ca \
     -out "$CERT_FILE"
-  sudo chmod 444 "$CERT_FILE"
+  # Certificates are public material; world-readable is acceptable.
+  chmod 444 "$CERT_FILE"
 fi
 
 echo "Packaging root certificate"
-sudo cp "$CERT_FILE" "$EXPORT_DIR/root-ca.pem"
-sudo chmod 444 "$EXPORT_DIR/root-ca.pem"
+# PEM copy with an easy-to-share/export-friendly name.
+cp "$CERT_FILE" "$EXPORT_DIR/root-ca.pem"
+chmod 444 "$EXPORT_DIR/root-ca.pem"
 
-sudo openssl x509 -in "$CERT_FILE" -out "$EXPORT_DIR/root-ca.crt"
-sudo chmod 444 "$EXPORT_DIR/root-ca.crt"
+# CRT (PEM encoding, .crt extension) for tools that expect that extension.
+openssl x509 -in "$CERT_FILE" -out "$EXPORT_DIR/root-ca.crt"
+chmod 444 "$EXPORT_DIR/root-ca.crt"
 
-sudo openssl x509 -in "$CERT_FILE" -outform DER -out "$EXPORT_DIR/root-ca.der"
-sudo chmod 444 "$EXPORT_DIR/root-ca.der"
+# DER (binary) encoding for platforms/import flows requiring DER certificates.
+openssl x509 -in "$CERT_FILE" -outform DER -out "$EXPORT_DIR/root-ca.der"
+chmod 444 "$EXPORT_DIR/root-ca.der"
 
 echo
 echo "Root CA created successfully."
 echo "Private key:  $KEY_FILE"
 echo "Certificate:  $CERT_FILE"
+echo "Config:       $ROOT_CA_CONFIG_FILE"
 echo "Exports:"
 echo "  $EXPORT_DIR/root-ca.pem"
 echo "  $EXPORT_DIR/root-ca.crt"
