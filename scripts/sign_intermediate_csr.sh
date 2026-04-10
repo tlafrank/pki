@@ -5,6 +5,11 @@ set -euo pipefail
 # Allow override, but default to the expected root CA location.
 ROOT_CA_OUTPUT_DIR="${ROOT_CA_OUTPUT_DIR:-/opt/pki/root_ca}"
 DAYS="${DAYS:-3650}"
+# These are only needed so root_ca.cnf can resolve $ENV::... variables in all
+# sections when OpenSSL parses the config for `openssl ca`.
+ORG="${ORG:-Example Org PKI}"
+OU="${OU:-Root CA}"
+CN="${CN:-Example Root CA}"
 
 ROOT_CERT_FILE="$ROOT_CA_OUTPUT_DIR/certs/root-ca.cert.pem"
 
@@ -85,7 +90,7 @@ if [ ! -f "$ROOT_CERT_FILE" ]; then
 fi
 
 # Export values consumed by $ENV::... references in the root CA config.
-export ROOT_CA_OUTPUT_DIR DAYS
+export ROOT_CA_OUTPUT_DIR DAYS ORG OU CN
 
 # Ensure output folders exist.
 mkdir -p "$CERTS_DIR" "$EXPORT_DIR"
