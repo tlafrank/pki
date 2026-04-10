@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PKI Control Plane</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>PKI Control Plane</h1>
+      <p>Submit certificate jobs to the API and track status.</p>
+
+      <section>
+        <h2>Create leaf P12</h2>
+        <p>
+          <button id="download-template" type="button">Download Batch Template (CSV)</button>
+        </p>
+        <form id="leaf-form">
+          <label>API URL <input id="api-url" value="http://localhost:8000" /></label>
+          <label>Profile
+            <select id="profile">
+              <option value="server">server</option>
+              <option value="admin">admin</option>
+              <option value="client">client</option>
+            </select>
+          </label>
+          <label>Common name <input id="common-name" required /></label>
+          <label>P12 password <input id="p12-password" type="password" required /></label>
+          <label>SAN DNS (comma-separated) <input id="san-dns" placeholder="api.example.internal" /></label>
+          <label>SAN IP (comma-separated) <input id="san-ips" placeholder="10.0.0.10" /></label>
+          <button type="submit">Submit Job</button>
+        </form>
+      </section>
+
+      <section>
+        <h2>Batch import (CSV)</h2>
+        <p>Populate the template and import it to generate multiple certificate packages at once.</p>
+        <div class="job-controls">
+          <label>Template CSV <input id="batch-file" type="file" accept=".csv,text/csv" /></label>
+          <button id="submit-batch" type="button">Generate Batch ZIP</button>
+        </div>
+        <p id="batch-download"></p>
+      </section>
+
+      <section>
+        <h2>Job status</h2>
+        <div class="job-controls">
+          <label>Job ID <input id="job-id" /></label>
+          <button id="poll-job" type="button">Fetch Job</button>
+        </div>
+        <pre id="job-output">No job loaded yet.</pre>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
