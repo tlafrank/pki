@@ -11,7 +11,7 @@ OU="${OU:-Root CA}"
 CN="${CN:-Example Root CA}"
 
 # OpenSSL configuration file to use (kept external to this script).
-ROOT_CA_CONFIG_FILE="${ROOT_CA_CONFIG_FILE:-/pki/root_ca/root_ca.cnf}"
+ROOT_CA_CONFIG_FILE="${ROOT_CA_CONFIG_FILE:-../root_ca/root_ca.cnf}"
 
 # --- Internal path layout ---------------------------------------------------
 # OpenSSL's CA tooling expects these files/directories to exist.
