@@ -36,12 +36,36 @@ run_script() {
 }
 
 require_chain_file() {
-  local chain_file="${INTERMEDIATE_CA_OUTPUT_DIR:-/opt/pki/intermediate-ca}/certs/ca-chain.cert.pem"
+  local chain_file="${INTERMEDIATE_CA_OUTPUT_DIR:-/opt/pki/intermediate-ca}/certs/ca-chain-cert.pem"
   if [[ ! -f "$chain_file" ]]; then
     echo "Error: chain file not found: $chain_file" >&2
-    echo "Sign the intermediate CA first so ca-chain.cert.pem exists." >&2
+    echo "Sign the intermediate CA first so ca-chain-cert.pem exists." >&2
     return 1
   fi
+}
+
+require_intermediate_certificate() {
+  local intermediate_cert="${INTERMEDIATE_CA_OUTPUT_DIR:-/opt/pki/intermediate-ca}/certs/intermediate-ca.cert.pem"
+  if [[ ! -f "$intermediate_cert" ]]; then
+    echo "Error: intermediate CA certificate not found: $intermediate_cert" >&2
+    echo "Sign the intermediate CA first." >&2
+    return 1
+  fi
+}
+
+read_p12_password() {
+  local prompt="$1"
+  local p12_password
+
+  while true; do
+    read -r -s -p "$prompt" p12_password
+    echo
+    if [[ -n "$p12_password" && ! "$p12_password" =~ ^[[:space:]]+$ ]]; then
+      printf '%s' "$p12_password"
+      return 0
+    fi
+    echo "Error: p12 password cannot be empty or whitespace-only." >&2
+  done
 }
 
 print_usage() {
@@ -76,7 +100,7 @@ interactive_menu() {
 4) Generate client key/cert as password-protected P12
 5) Sign leaf CSR
 h) Help
-q) Back
+q) Quit
 EOF
     if [[ "${FROM_MAIN_MENU:-0}" == "1" ]]; then
       echo "b) Back to main menu"
@@ -89,27 +113,28 @@ EOF
         run_script "$INTERMEDIATE_CA_CREATE_SCRIPT"
         ;;
       2)
+        require_intermediate_certificate || continue
         require_chain_file || continue
         read -r -p "Server common name: " leaf_cn
-        read -r -s -p "P12 password: " p12_password
-        echo
+        p12_password="$(read_p12_password 'P12 password: ')"
         run_script "$LEAF_CREATE_SIGN_PACKAGE_SCRIPT" server "$leaf_cn" "$p12_password"
         ;;
       3)
+        require_intermediate_certificate || continue
         require_chain_file || continue
         read -r -p "Admin common name: " leaf_cn
-        read -r -s -p "P12 password: " p12_password
-        echo
+        p12_password="$(read_p12_password 'P12 password: ')"
         run_script "$LEAF_CREATE_SIGN_PACKAGE_SCRIPT" admin "$leaf_cn" "$p12_password"
         ;;
       4)
+        require_intermediate_certificate || continue
         require_chain_file || continue
         read -r -p "Client common name: " leaf_cn
-        read -r -s -p "P12 password: " p12_password
-        echo
+        p12_password="$(read_p12_password 'P12 password: ')"
         run_script "$LEAF_CREATE_SIGN_PACKAGE_SCRIPT" client "$leaf_cn" "$p12_password"
         ;;
       5)
+        require_intermediate_certificate || continue
         read -r -p "Path to leaf CSR: " csr_path
         run_script "$LEAF_SIGN_CSR_SCRIPT" "$csr_path"
         ;;
@@ -117,6 +142,10 @@ EOF
         print_usage
         ;;
       q|Q)
+        # When invoked from menu.sh, 99 signals a full quit request.
+        if [[ "${FROM_MAIN_MENU:-0}" == "1" ]]; then
+          exit 99
+        fi
         exit 0
         ;;
       b|B|back)
@@ -143,21 +172,37 @@ main() {
         ;;
       2|generate-server-p12)
         shift
+        require_intermediate_certificate || exit 1
         require_chain_file || exit 1
+        if [[ $# -lt 2 || -z "${2:-}" || "${2:-}" =~ ^[[:space:]]+$ ]]; then
+          echo "Usage: $(basename "$0") generate-server-p12 <common-name> <p12-password>" >&2
+          exit 1
+        fi
         run_script "$LEAF_CREATE_SIGN_PACKAGE_SCRIPT" server "$@"
         ;;
       3|generate-admin-p12)
         shift
+        require_intermediate_certificate || exit 1
         require_chain_file || exit 1
+        if [[ $# -lt 2 || -z "${2:-}" || "${2:-}" =~ ^[[:space:]]+$ ]]; then
+          echo "Usage: $(basename "$0") generate-admin-p12 <common-name> <p12-password>" >&2
+          exit 1
+        fi
         run_script "$LEAF_CREATE_SIGN_PACKAGE_SCRIPT" admin "$@"
         ;;
       4|generate-client-p12)
         shift
+        require_intermediate_certificate || exit 1
         require_chain_file || exit 1
+        if [[ $# -lt 2 || -z "${2:-}" || "${2:-}" =~ ^[[:space:]]+$ ]]; then
+          echo "Usage: $(basename "$0") generate-client-p12 <common-name> <p12-password>" >&2
+          exit 1
+        fi
         run_script "$LEAF_CREATE_SIGN_PACKAGE_SCRIPT" client "$@"
         ;;
       5|sign-leaf-csr)
         shift
+        require_intermediate_certificate || exit 1
         run_script "$LEAF_SIGN_CSR_SCRIPT" "$@"
         ;;
       h|help|-h|--help)
