@@ -14,22 +14,38 @@ GENERATE_LEAF_CSR_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/generate
 SIGN_LEAF_CSR_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sign_leaf_csr.sh"
 
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
-  echo "Error: create_sign_package_leaf.sh must be run as root." >&2
-  echo "Re-run with: sudo $0" >&2
-  exit 1
+  if [ "${ALLOW_NON_ROOT:-0}" != "1" ]; then
+    echo "Error: create_sign_package_leaf.sh must be run as root." >&2
+    echo "Re-run with: sudo $0" >&2
+    echo "For automation/workers, set ALLOW_NON_ROOT=1 and writable output dirs." >&2
+    exit 1
+  fi
 fi
 
-if [ $# -lt 3 ]; then
-  echo "Usage: $0 <server|admin|client> <leaf-common-name> <p12-password>" >&2
+if [ $# -lt 2 ]; then
+  echo "Usage: $0 <server|admin|client> <leaf-common-name> [p12-password]" >&2
+  echo "Or set P12_PASSWORD in the environment." >&2
   exit 1
 fi
 
 PROFILE="$1"
 LEAF_CN="$2"
-P12_PASSWORD="$3"
+P12_PASSWORD="${P12_PASSWORD:-}"
+EXTRA_CSR_ARGS=()
+
+if [ $# -ge 3 ] && [[ "${3:-}" != --* ]]; then
+  P12_PASSWORD="$3"
+  shift 3
+else
+  shift 2
+fi
+
+if [ $# -gt 0 ]; then
+  EXTRA_CSR_ARGS=("$@")
+fi
 
 if [ -z "$P12_PASSWORD" ]; then
-  echo "Error: p12 password cannot be empty." >&2
+  echo "Error: p12 password cannot be empty (arg 3 or P12_PASSWORD env)." >&2
   exit 1
 fi
 
@@ -66,7 +82,7 @@ if [ ! -f "$CHAIN_FILE" ]; then
 fi
 
 # Generate (or re-use) key + CSR using the dedicated CSR workflow script.
-"$GENERATE_LEAF_CSR_SCRIPT" "$PROFILE" "$LEAF_CN"
+"$GENERATE_LEAF_CSR_SCRIPT" "$PROFILE" "$LEAF_CN" "${EXTRA_CSR_ARGS[@]}"
 
 # Sign the generated CSR with the intermediate CA.
 echo "Signing leaf CSR"

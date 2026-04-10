@@ -15,9 +15,12 @@ LEAF_CERTS_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/certs"
 LEAF_EXPORT_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/export"
 
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
-  echo "Error: sign_leaf_csr.sh must be run as root." >&2
-  echo "Re-run with: sudo $0" >&2
-  exit 1
+  if [ "${ALLOW_NON_ROOT:-0}" != "1" ]; then
+    echo "Error: sign_leaf_csr.sh must be run as root." >&2
+    echo "Re-run with: sudo $0" >&2
+    echo "For automation/workers, set ALLOW_NON_ROOT=1 and writable output dirs." >&2
+    exit 1
+  fi
 fi
 
 if [ $# -ne 1 ]; then
