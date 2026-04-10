@@ -12,7 +12,7 @@ OU="${OU:-Intermediate CA}"
 CN="${CN:-Example Intermediate CA}"
 
 # OpenSSL configuration file to use (kept external to this script).
-INTERMEDIATE_CA_CONFIG_FILE="${INTERMEDIATE_CA_CONFIG_FILE:-../intermediate_ca/intermediate_ca.cnf}"
+INTERMEDIATE_CA_CONFIG_FILE="${INTERMEDIATE_CA_CONFIG_FILE:-${SCRIPT_DIR}/../intermediate_ca/intermediate_ca.cnf}"
 
 # --- Internal path layout ---------------------------------------------------
 CERTS_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/certs"
@@ -27,9 +27,12 @@ CSR_FILE="$CSR_DIR/intermediate-ca.csr.pem"
 
 # Check that the script is being run as root.
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
-  echo "Error: create_intermediate_ca.sh must be run as root." >&2
-  echo "Re-run with: sudo $0" >&2
-  exit 1
+  if [ "${ALLOW_NON_ROOT:-0}" != "1" ]; then
+    echo "Error: create_intermediate_ca.sh must be run as root." >&2
+    echo "Re-run with: sudo $0" >&2
+    echo "For automation/workers, set ALLOW_NON_ROOT=1 and writable output dirs." >&2
+    exit 1
+  fi
 fi
 
 # Check that the configuration file exists.
