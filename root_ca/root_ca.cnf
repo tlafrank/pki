@@ -2,7 +2,8 @@
 default_ca = CA_default
 
 [ CA_default ]
-dir               = /opt/pki/root-ca
+# Root CA working directory. Provide ROOT_CA_OUTPUT_DIR in environment.
+dir               = $ENV::ROOT_CA_OUTPUT_DIR
 certs             = $dir/certs
 crl_dir           = $dir/crl
 new_certs_dir     = $dir/newcerts
@@ -31,9 +32,10 @@ x509_extensions     = v3_root_ca
 prompt              = no
 
 [ req_distinguished_name ]
-O  = Org
-OU = Root CA
-CN = root_CA.me.au
+# Subject values are read from environment variables set by the script.
+O  = $ENV::ORG
+OU = $ENV::OU
+CN = $ENV::CN
 
 [ v3_root_ca ]
 subjectKeyIdentifier   = hash
