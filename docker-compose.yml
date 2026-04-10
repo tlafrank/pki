@@ -1,0 +1,24 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: pki-api
+    environment:
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./scripts:/app/scripts:ro
+      - ./root_ca:/app/root_ca:ro
+      - ./intermediate_ca:/app/intermediate_ca:ro
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    container_name: pki-web
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
