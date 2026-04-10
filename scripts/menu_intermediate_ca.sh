@@ -2,13 +2,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_MENU_SCRIPT="${SCRIPT_DIR}/menu_root_ca.sh"
-INTERMEDIATE_MENU_SCRIPT="${SCRIPT_DIR}/menu_intermediate_ca.sh"
-LEAF_MENU_SCRIPT="${SCRIPT_DIR}/menu_leaf.sh"
+INTERMEDIATE_CA_CREATE_SCRIPT="${SCRIPT_DIR}/create_intermediate_ca.sh"
 
 require_root() {
   if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
-    echo "Error: menu.sh must be run as root." >&2
+    echo "Error: menu_intermediate_ca.sh must be run as root." >&2
     echo "Re-run with: sudo $0" >&2
     exit 1
   fi
@@ -37,11 +35,9 @@ Usage:
   $(basename "$0") <action> [args ...]
 
 Actions:
-  1 | root-ca-actions          Run ${ROOT_MENU_SCRIPT##*/}
-  2 | intermediate-ca-actions  Run ${INTERMEDIATE_MENU_SCRIPT##*/}
-  3 | leaf-actions             Run ${LEAF_MENU_SCRIPT##*/}
+  1 | create-intermediate-ca   Run ${INTERMEDIATE_CA_CREATE_SCRIPT##*/}
   h | help                     Show this help text
-  q | quit                     Exit the menu
+  q | quit                     Exit this menu
 EOF
 }
 
@@ -51,26 +47,18 @@ interactive_menu() {
   while true; do
     cat <<'EOF'
 ========================================
- PKI Operations Menu
+ Intermediate CA Actions
 ========================================
-1) Root CA Actions
-2) Intermediate CA Actions
-3) Leaf Actions
+1) Create intermediate CA keypair and CSR
 h) Help
-q) Quit
+q) Back
 EOF
 
     read -r -p "Select an option: " choice
 
     case "$choice" in
       1)
-        run_script "$ROOT_MENU_SCRIPT"
-        ;;
-      2)
-        run_script "$INTERMEDIATE_MENU_SCRIPT"
-        ;;
-      3)
-        run_script "$LEAF_MENU_SCRIPT"
+        run_script "$INTERMEDIATE_CA_CREATE_SCRIPT"
         ;;
       h|H)
         print_usage
@@ -90,17 +78,9 @@ main() {
 
   if [[ $# -gt 0 ]]; then
     case "$1" in
-      1|root-ca-actions)
+      1|create-intermediate-ca)
         shift
-        run_script "$ROOT_MENU_SCRIPT" "$@"
-        ;;
-      2|intermediate-ca-actions)
-        shift
-        run_script "$INTERMEDIATE_MENU_SCRIPT" "$@"
-        ;;
-      3|leaf-actions)
-        shift
-        run_script "$LEAF_MENU_SCRIPT" "$@"
+        run_script "$INTERMEDIATE_CA_CREATE_SCRIPT" "$@"
         ;;
       h|help|-h|--help)
         print_usage

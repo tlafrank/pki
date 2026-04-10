@@ -2,13 +2,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_MENU_SCRIPT="${SCRIPT_DIR}/menu_root_ca.sh"
-INTERMEDIATE_MENU_SCRIPT="${SCRIPT_DIR}/menu_intermediate_ca.sh"
-LEAF_MENU_SCRIPT="${SCRIPT_DIR}/menu_leaf.sh"
+LEAF_SIGN_CSR_SCRIPT="${SCRIPT_DIR}/sign_leaf_csr.sh"
+LEAF_CREATE_SIGN_PACKAGE_SCRIPT="${SCRIPT_DIR}/create_sign_package_leaf.sh"
 
 require_root() {
   if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
-    echo "Error: menu.sh must be run as root." >&2
+    echo "Error: menu_leaf.sh must be run as root." >&2
     echo "Re-run with: sudo $0" >&2
     exit 1
   fi
@@ -37,11 +36,10 @@ Usage:
   $(basename "$0") <action> [args ...]
 
 Actions:
-  1 | root-ca-actions          Run ${ROOT_MENU_SCRIPT##*/}
-  2 | intermediate-ca-actions  Run ${INTERMEDIATE_MENU_SCRIPT##*/}
-  3 | leaf-actions             Run ${LEAF_MENU_SCRIPT##*/}
+  1 | sign-leaf-csr            Run ${LEAF_SIGN_CSR_SCRIPT##*/} <csr-path>
+  2 | create-sign-package-leaf Run ${LEAF_CREATE_SIGN_PACKAGE_SCRIPT##*/} <common-name> <p12-password>
   h | help                     Show this help text
-  q | quit                     Exit the menu
+  q | quit                     Exit this menu
 EOF
 }
 
@@ -51,26 +49,26 @@ interactive_menu() {
   while true; do
     cat <<'EOF'
 ========================================
- PKI Operations Menu
+ Leaf Actions
 ========================================
-1) Root CA Actions
-2) Intermediate CA Actions
-3) Leaf Actions
+1) Sign leaf CSR
+2) Create keypair, sign and package leaf certificate
 h) Help
-q) Quit
+q) Back
 EOF
 
     read -r -p "Select an option: " choice
 
     case "$choice" in
       1)
-        run_script "$ROOT_MENU_SCRIPT"
+        read -r -p "Path to leaf CSR: " csr_path
+        run_script "$LEAF_SIGN_CSR_SCRIPT" "$csr_path"
         ;;
       2)
-        run_script "$INTERMEDIATE_MENU_SCRIPT"
-        ;;
-      3)
-        run_script "$LEAF_MENU_SCRIPT"
+        read -r -p "Leaf common name: " leaf_cn
+        read -r -s -p "P12 password: " p12_password
+        echo
+        run_script "$LEAF_CREATE_SIGN_PACKAGE_SCRIPT" "$leaf_cn" "$p12_password"
         ;;
       h|H)
         print_usage
@@ -90,17 +88,13 @@ main() {
 
   if [[ $# -gt 0 ]]; then
     case "$1" in
-      1|root-ca-actions)
+      1|sign-leaf-csr)
         shift
-        run_script "$ROOT_MENU_SCRIPT" "$@"
+        run_script "$LEAF_SIGN_CSR_SCRIPT" "$@"
         ;;
-      2|intermediate-ca-actions)
+      2|create-sign-package-leaf)
         shift
-        run_script "$INTERMEDIATE_MENU_SCRIPT" "$@"
-        ;;
-      3|leaf-actions)
-        shift
-        run_script "$LEAF_MENU_SCRIPT" "$@"
+        run_script "$LEAF_CREATE_SIGN_PACKAGE_SCRIPT" "$@"
         ;;
       h|help|-h|--help)
         print_usage
