@@ -1,0 +1,50 @@
+[ ca ]
+default_ca = CA_default
+
+[ CA_default ]
+# Intermediate CA working directory. Provide INTERMEDIATE_CA_OUTPUT_DIR in environment.
+dir               = $ENV::INTERMEDIATE_CA_OUTPUT_DIR
+certs             = $dir/certs
+crl_dir           = $dir/crl
+new_certs_dir     = $dir/newcerts
+database          = $dir/index.txt
+serial            = $dir/serial
+private_key       = $dir/private/intermediate-ca.key.pem
+certificate       = $dir/certs/intermediate-ca.cert.pem
+default_md        = sha256
+policy            = policy_loose
+x509_extensions   = usr_cert
+copy_extensions   = none
+
+[ policy_loose ]
+countryName             = optional
+stateOrProvinceName     = optional
+organizationName        = optional
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = optional
+
+[ req ]
+default_bits        = 4096
+default_md          = sha256
+distinguished_name  = req_distinguished_name
+req_extensions      = v3_intermediate_ca
+prompt              = no
+
+[ req_distinguished_name ]
+# Subject values are read from environment variables set by the script.
+O  = $ENV::ORG
+OU = $ENV::OU
+CN = $ENV::CN
+
+[ v3_intermediate_ca ]
+subjectKeyIdentifier   = hash
+basicConstraints       = critical, CA:true, pathlen:0
+keyUsage               = critical, keyCertSign, cRLSign
+
+[ usr_cert ]
+basicConstraints       = critical, CA:false
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid,issuer
+keyUsage               = critical, digitalSignature, keyEncipherment
+extendedKeyUsage       = serverAuth, clientAuth

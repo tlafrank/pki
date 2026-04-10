@@ -2,13 +2,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_MENU_SCRIPT="${SCRIPT_DIR}/menu_root_ca.sh"
-INTERMEDIATE_MENU_SCRIPT="${SCRIPT_DIR}/menu_intermediate_ca.sh"
-LEAF_MENU_SCRIPT="${SCRIPT_DIR}/menu_leaf.sh"
+ROOT_CA_CREATE_SCRIPT="${SCRIPT_DIR}/create_root_ca.sh"
+INTERMEDIATE_CA_SIGN_CSR_SCRIPT="${SCRIPT_DIR}/sign_intermediate_csr.sh"
 
 require_root() {
   if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
-    echo "Error: menu.sh must be run as root." >&2
+    echo "Error: menu_root_ca.sh must be run as root." >&2
     echo "Re-run with: sudo $0" >&2
     exit 1
   fi
@@ -37,11 +36,11 @@ Usage:
   $(basename "$0") <action> [args ...]
 
 Actions:
-  1 | root-ca-actions          Run ${ROOT_MENU_SCRIPT##*/}
-  2 | intermediate-ca-actions  Run ${INTERMEDIATE_MENU_SCRIPT##*/}
-  3 | leaf-actions             Run ${LEAF_MENU_SCRIPT##*/}
+  1 | create-root-ca           Run ${ROOT_CA_CREATE_SCRIPT##*/}
+  2 | sign-intermediate-csr    Run ${INTERMEDIATE_CA_SIGN_CSR_SCRIPT##*/} <csr-path>
   h | help                     Show this help text
-  q | quit                     Exit the menu
+  q | quit                     Exit this menu
+  b | back                     Return to main menu (only when called from menu.sh)
 EOF
 }
 
@@ -51,32 +50,38 @@ interactive_menu() {
   while true; do
     cat <<'EOF'
 ========================================
- PKI Operations Menu
+ Root CA Actions
 ========================================
-1) Root CA Actions
-2) Intermediate CA Actions
-3) Leaf Actions
+1) Create root CA keypair and certificate
+2) Sign intermediate CA CSR
 h) Help
-q) Quit
+q) Back
 EOF
+    if [[ "${FROM_MAIN_MENU:-0}" == "1" ]]; then
+      echo "b) Back to main menu"
+    fi
 
     read -r -p "Select an option: " choice
 
     case "$choice" in
       1)
-        FROM_MAIN_MENU=1 run_script "$ROOT_MENU_SCRIPT"
+        run_script "$ROOT_CA_CREATE_SCRIPT"
         ;;
       2)
-        FROM_MAIN_MENU=1 run_script "$INTERMEDIATE_MENU_SCRIPT"
-        ;;
-      3)
-        FROM_MAIN_MENU=1 run_script "$LEAF_MENU_SCRIPT"
+        read -r -p "Path to intermediate CSR: " csr_path
+        run_script "$INTERMEDIATE_CA_SIGN_CSR_SCRIPT" "$csr_path"
         ;;
       h|H)
         print_usage
         ;;
       q|Q)
         exit 0
+        ;;
+      b|B|back)
+        if [[ "${FROM_MAIN_MENU:-0}" == "1" ]]; then
+          return 0
+        fi
+        echo "Back is only available when called from menu.sh." >&2
         ;;
       *)
         echo "Invalid selection: $choice" >&2
@@ -90,17 +95,13 @@ main() {
 
   if [[ $# -gt 0 ]]; then
     case "$1" in
-      1|root-ca-actions)
+      1|create-root-ca)
         shift
-        FROM_MAIN_MENU=1 run_script "$ROOT_MENU_SCRIPT" "$@"
+        run_script "$ROOT_CA_CREATE_SCRIPT" "$@"
         ;;
-      2|intermediate-ca-actions)
+      2|sign-intermediate-csr)
         shift
-        FROM_MAIN_MENU=1 run_script "$INTERMEDIATE_MENU_SCRIPT" "$@"
-        ;;
-      3|leaf-actions)
-        shift
-        FROM_MAIN_MENU=1 run_script "$LEAF_MENU_SCRIPT" "$@"
+        run_script "$INTERMEDIATE_CA_SIGN_CSR_SCRIPT" "$@"
         ;;
       h|help|-h|--help)
         print_usage
