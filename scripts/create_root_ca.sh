@@ -25,13 +25,14 @@ EXPORT_DIR="$ROOT_CA_OUTPUT_DIR/export"
 KEY_FILE="$PRIVATE_DIR/root-ca.key.pem"
 CERT_FILE="$CERTS_DIR/root-ca.cert.pem"
 
-
+# Check that the script is being run as root
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
   echo "Error: create_root_ca.sh must be run as root." >&2
   echo "Re-run with: sudo $0" >&2
   exit 1
 fi
 
+# Check that the configuration file exists
 if [ ! -f "$ROOT_CA_CONFIG_FILE" ]; then
   echo "Error: OpenSSL root CA config not found: $ROOT_CA_CONFIG_FILE" >&2
   echo "Set ROOT_CA_CONFIG_FILE to the correct path and re-run." >&2
@@ -66,6 +67,7 @@ if [ ! -f "$ROOT_CA_OUTPUT_DIR/serial" ]; then
   echo 1000 | tee "$ROOT_CA_OUTPUT_DIR/serial" >/dev/null
 fi
 
+# Generate the root CA private key
 if [ -f "$KEY_FILE" ]; then
   echo "Root CA private key already exists: $KEY_FILE"
 else
@@ -79,6 +81,7 @@ else
   chmod 400 "$KEY_FILE"
 fi
 
+# 
 if [ -f "$CERT_FILE" ]; then
   echo "Root CA certificate already exists: $CERT_FILE"
 else
@@ -102,12 +105,12 @@ cp "$CERT_FILE" "$EXPORT_DIR/root-ca.pem"
 chmod 444 "$EXPORT_DIR/root-ca.pem"
 
 # CRT (PEM encoding, .crt extension) for tools that expect that extension.
-openssl x509 -in "$CERT_FILE" -out "$EXPORT_DIR/root-ca.crt"
-chmod 444 "$EXPORT_DIR/root-ca.crt"
+#openssl x509 -in "$CERT_FILE" -out "$EXPORT_DIR/root-ca.crt"
+#chmod 444 "$EXPORT_DIR/root-ca.crt"
 
 # DER (binary) encoding for platforms/import flows requiring DER certificates.
-openssl x509 -in "$CERT_FILE" -outform DER -out "$EXPORT_DIR/root-ca.der"
-chmod 444 "$EXPORT_DIR/root-ca.der"
+#openssl x509 -in "$CERT_FILE" -outform DER -out "$EXPORT_DIR/root-ca.der"
+#chmod 444 "$EXPORT_DIR/root-ca.der"
 
 echo
 echo "Root CA created successfully."
@@ -116,8 +119,8 @@ echo "Certificate:  $CERT_FILE"
 echo "Config:       $ROOT_CA_CONFIG_FILE"
 echo "Exports:"
 echo "  $EXPORT_DIR/root-ca.pem"
-echo "  $EXPORT_DIR/root-ca.crt"
-echo "  $EXPORT_DIR/root-ca.der"
+#echo "  $EXPORT_DIR/root-ca.crt"
+#echo "  $EXPORT_DIR/root-ca.der"
 echo
-echo "Inspect with:"
+echo "Inspect created certificate with:"
 echo "  openssl x509 -in $CERT_FILE -noout -text"
