@@ -3,8 +3,8 @@ set -euo pipefail
 
 # --- User-tunable defaults -------------------------------------------------
 # You can override any of these at runtime, for example:
-#   ROOT_CA_OUTPUT_DIR=/tmp/root-ca DAYS=3650 ./create_root_ca.sh
-ROOT_CA_OUTPUT_DIR="${ROOT_CA_OUTPUT_DIR:-/opt/pki/root-ca}"
+#   ROOT_CA_OUTPUT_DIR=/tmp/root_ca DAYS=3650 ./create_root_ca.sh
+ROOT_CA_OUTPUT_DIR="${ROOT_CA_OUTPUT_DIR:-/opt/pki/root_ca}"
 DAYS="${DAYS:-7300}"
 ORG="${ORG:-Example Org PKI}"
 OU="${OU:-Root CA}"
@@ -20,7 +20,7 @@ CRL_DIR="$ROOT_CA_OUTPUT_DIR/crl"
 CSR_DIR="$ROOT_CA_OUTPUT_DIR/csr"
 NEWCERTS_DIR="$ROOT_CA_OUTPUT_DIR/newcerts"
 PRIVATE_DIR="$ROOT_CA_OUTPUT_DIR/private"
-EXPORT_DIR="$ROOT_CA_OUTPUT_DIR/export"
+EXPORT_DIR="$ROOT_CA_OUTPUT_DIR/exports"
 
 KEY_FILE="$PRIVATE_DIR/root-ca.key.pem"
 CERT_FILE="$CERTS_DIR/root-ca.cert.pem"
