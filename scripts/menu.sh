@@ -30,6 +30,21 @@ run_script() {
   fi
 }
 
+run_submenu() {
+  local script_path="$1"
+  shift || true
+
+  local rc=0
+  run_script "$script_path" "$@" || rc=$?
+
+  # Submenus use exit code 99 to indicate a full quit request.
+  if [[ $rc -eq 99 ]]; then
+    exit 0
+  fi
+
+  return $rc
+}
+
 print_usage() {
   cat <<EOF
 Usage:
@@ -64,13 +79,13 @@ EOF
 
     case "$choice" in
       1)
-        FROM_MAIN_MENU=1 run_script "$ROOT_MENU_SCRIPT"
+        FROM_MAIN_MENU=1 run_submenu "$ROOT_MENU_SCRIPT"
         ;;
       2)
-        FROM_MAIN_MENU=1 run_script "$INTERMEDIATE_MENU_SCRIPT"
+        FROM_MAIN_MENU=1 run_submenu "$INTERMEDIATE_MENU_SCRIPT"
         ;;
       3)
-        FROM_MAIN_MENU=1 run_script "$LEAF_MENU_SCRIPT"
+        FROM_MAIN_MENU=1 run_submenu "$LEAF_MENU_SCRIPT"
         ;;
       h|H)
         print_usage
@@ -92,15 +107,15 @@ main() {
     case "$1" in
       1|root-ca-actions)
         shift
-        FROM_MAIN_MENU=1 run_script "$ROOT_MENU_SCRIPT" "$@"
+        FROM_MAIN_MENU=1 run_submenu "$ROOT_MENU_SCRIPT" "$@"
         ;;
       2|intermediate-ca-actions)
         shift
-        FROM_MAIN_MENU=1 run_script "$INTERMEDIATE_MENU_SCRIPT" "$@"
+        FROM_MAIN_MENU=1 run_submenu "$INTERMEDIATE_MENU_SCRIPT" "$@"
         ;;
       3|leaf-actions)
         shift
-        FROM_MAIN_MENU=1 run_script "$LEAF_MENU_SCRIPT" "$@"
+        FROM_MAIN_MENU=1 run_submenu "$LEAF_MENU_SCRIPT" "$@"
         ;;
       h|help|-h|--help)
         print_usage

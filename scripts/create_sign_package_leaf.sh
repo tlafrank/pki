@@ -33,6 +33,11 @@ if [ -z "$P12_PASSWORD" ]; then
   exit 1
 fi
 
+if [[ "$P12_PASSWORD" =~ ^[[:space:]]+$ ]]; then
+  echo "Error: p12 password cannot be whitespace-only." >&2
+  exit 1
+fi
+
 PROFILE_DIR="$LEAF_OUTPUT_DIR/$PROFILE"
 PRIVATE_DIR="$PROFILE_DIR/private"
 CSR_DIR="$PROFILE_DIR/csr"
@@ -47,7 +52,7 @@ KEY_FILE="$PRIVATE_DIR/${LEAF_CN}.key.pem"
 CSR_FILE="$CSR_DIR/${LEAF_CN}.csr.pem"
 CERT_FILE="$CERTS_DIR/${LEAF_CN}.cert.pem"
 P12_FILE="$EXPORT_DIR/${LEAF_CN}.p12"
-CHAIN_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/ca-chain.cert.pem"
+CHAIN_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/ca-chain-cert.pem"
 
 if [ ! -f "$LEAF_CONFIG_FILE" ]; then
   echo "Error: OpenSSL intermediate CA config not found: $LEAF_CONFIG_FILE" >&2
@@ -56,7 +61,7 @@ fi
 
 if [ ! -f "$CHAIN_FILE" ]; then
   echo "Error: chain file not found: $CHAIN_FILE" >&2
-  echo "Sign the intermediate CA first so ca-chain.cert.pem exists." >&2
+  echo "Sign the intermediate CA first so ca-chain-cert.pem exists." >&2
   exit 1
 fi
 

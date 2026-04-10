@@ -55,7 +55,7 @@ interactive_menu() {
 1) Create root CA keypair and certificate
 2) Sign intermediate CA CSR
 h) Help
-q) Back
+q) Quit
 EOF
     if [[ "${FROM_MAIN_MENU:-0}" == "1" ]]; then
       echo "b) Back to main menu"
@@ -75,6 +75,10 @@ EOF
         print_usage
         ;;
       q|Q)
+        # When invoked from menu.sh, 99 signals a full quit request.
+        if [[ "${FROM_MAIN_MENU:-0}" == "1" ]]; then
+          exit 99
+        fi
         exit 0
         ;;
       b|B|back)
