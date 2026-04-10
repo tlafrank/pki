@@ -1,0 +1,17 @@
+[ req ]
+default_bits        = 4096
+default_md          = sha256
+distinguished_name  = req_distinguished_name
+req_extensions      = v3_intermediate_ca
+prompt              = no
+
+[ req_distinguished_name ]
+# Subject values are read from environment variables set by the script.
+O  = $ENV::ORG
+OU = $ENV::OU
+CN = $ENV::CN
+
+[ v3_intermediate_ca ]
+subjectKeyIdentifier   = hash
+basicConstraints       = critical, CA:true, pathlen:0
+keyUsage               = critical, keyCertSign, cRLSign
