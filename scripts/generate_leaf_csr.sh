@@ -11,18 +11,50 @@ LEAF_OUTPUT_DIR="${LEAF_OUTPUT_DIR:-$INTERMEDIATE_CA_OUTPUT_DIR/leaf}"
 ORG="${ORG:-Example Org PKI}"
 
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
-  echo "Error: generate_leaf_csr.sh must be run as root." >&2
-  echo "Re-run with: sudo $0" >&2
-  exit 1
+  if [ "${ALLOW_NON_ROOT:-0}" != "1" ]; then
+    echo "Error: generate_leaf_csr.sh must be run as root." >&2
+    echo "Re-run with: sudo $0" >&2
+    echo "For automation/workers, set ALLOW_NON_ROOT=1 and writable output dirs." >&2
+    exit 1
+  fi
 fi
 
-if [ $# -ne 2 ]; then
-  echo "Usage: $0 <server|admin|client> <leaf-common-name>" >&2
+if [ $# -lt 2 ]; then
+  echo "Usage: $0 <server|admin|client> <leaf-common-name> [--san-dns <name>]... [--san-ip <ip>]..." >&2
   exit 1
 fi
 
 PROFILE="$1"
 LEAF_CN="$2"
+shift 2
+
+SAN_DNS_ENTRIES=()
+SAN_IP_ENTRIES=()
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --san-dns)
+      if [ $# -lt 2 ] || [ -z "$2" ]; then
+        echo "Error: --san-dns requires a non-empty value." >&2
+        exit 1
+      fi
+      SAN_DNS_ENTRIES+=("$2")
+      shift 2
+      ;;
+    --san-ip)
+      if [ $# -lt 2 ] || [ -z "$2" ]; then
+        echo "Error: --san-ip requires a non-empty value." >&2
+        exit 1
+      fi
+      SAN_IP_ENTRIES+=("$2")
+      shift 2
+      ;;
+    *)
+      echo "Error: unknown argument: $1" >&2
+      exit 1
+      ;;
+  esac
+done
 
 # Map the profile to a human-readable OU used in the CSR subject.
 case "$PROFILE" in
@@ -70,25 +102,39 @@ else
   echo "Generating $PROFILE leaf CSR"
 
   if [ "$PROFILE" = "server" ]; then
-    echo "Collect SAN DNS entries for server certificate (press Enter on empty line to finish):"
-    SAN_DNS_ENTRIES=()
-    while true; do
-      read -r -p "  DNS SAN: " dns_entry
-      if [ -z "$dns_entry" ]; then
-        break
-      fi
-      SAN_DNS_ENTRIES+=("$dns_entry")
-    done
+    if [ "${#SAN_DNS_ENTRIES[@]}" -eq 0 ] && [ -n "${SAN_DNS_LIST:-}" ]; then
+      IFS=',' read -r -a SAN_DNS_ENTRIES <<< "$SAN_DNS_LIST"
+    fi
 
-    echo "Collect SAN IP entries for server certificate (press Enter on empty line to finish):"
-    SAN_IP_ENTRIES=()
-    while true; do
-      read -r -p "  IP SAN: " ip_entry
-      if [ -z "$ip_entry" ]; then
-        break
+    if [ "${#SAN_IP_ENTRIES[@]}" -eq 0 ] && [ -n "${SAN_IP_LIST:-}" ]; then
+      IFS=',' read -r -a SAN_IP_ENTRIES <<< "$SAN_IP_LIST"
+    fi
+
+    if [ "${#SAN_DNS_ENTRIES[@]}" -eq 0 ] && [ "${#SAN_IP_ENTRIES[@]}" -eq 0 ]; then
+      if [ -t 0 ]; then
+        echo "Collect SAN DNS entries for server certificate (press Enter on empty line to finish):"
+        while true; do
+          read -r -p "  DNS SAN: " dns_entry
+          if [ -z "$dns_entry" ]; then
+            break
+          fi
+          SAN_DNS_ENTRIES+=("$dns_entry")
+        done
+
+        echo "Collect SAN IP entries for server certificate (press Enter on empty line to finish):"
+        while true; do
+          read -r -p "  IP SAN: " ip_entry
+          if [ -z "$ip_entry" ]; then
+            break
+          fi
+          SAN_IP_ENTRIES+=("$ip_entry")
+        done
+      else
+        echo "Error: server profile requires SAN values in non-interactive mode." >&2
+        echo "Provide --san-dns/--san-ip flags or SAN_DNS_LIST/SAN_IP_LIST env vars." >&2
+        exit 1
       fi
-      SAN_IP_ENTRIES+=("$ip_entry")
-    done
+    fi
 
     if [ "${#SAN_DNS_ENTRIES[@]}" -eq 0 ] && [ "${#SAN_IP_ENTRIES[@]}" -eq 0 ]; then
       echo "Error: at least one SAN entry (DNS or IP) is required for server certificates." >&2
