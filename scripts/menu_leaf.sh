@@ -2,19 +2,20 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_MENU_SCRIPT="${SCRIPT_DIR}/menu_root_ca.sh"
-INTERMEDIATE_MENU_SCRIPT="${SCRIPT_DIR}/menu_intermediate_ca.sh"
-LEAF_MENU_SCRIPT="${SCRIPT_DIR}/menu_leaf.sh"
+# Leaf submenu is intentionally CSR-focused only.
+# Signing and packaging actions are performed in the intermediate menu.
+GENERATE_LEAF_CSR_SCRIPT="${SCRIPT_DIR}/generate_leaf_csr.sh"
 
 require_root() {
   if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
-    echo "Error: menu.sh must be run as root." >&2
+    echo "Error: menu_leaf.sh must be run as root." >&2
     echo "Re-run with: sudo $0" >&2
     exit 1
   fi
 }
 
 run_script() {
+  # Consistent launcher used by all menu actions.
   local script_path="$1"
   shift || true
 
@@ -37,11 +38,11 @@ Usage:
   $(basename "$0") <action> [args ...]
 
 Actions:
-  1 | root-ca-actions          Run ${ROOT_MENU_SCRIPT##*/}
-  2 | intermediate-ca-actions  Run ${INTERMEDIATE_MENU_SCRIPT##*/}
-  3 | leaf-actions             Run ${LEAF_MENU_SCRIPT##*/}
+  1 | generate-server-csr      Run ${GENERATE_LEAF_CSR_SCRIPT##*/} server <common-name>
+  2 | generate-admin-csr       Run ${GENERATE_LEAF_CSR_SCRIPT##*/} admin <common-name>
+  3 | generate-client-csr      Run ${GENERATE_LEAF_CSR_SCRIPT##*/} client <common-name>
   h | help                     Show this help text
-  q | quit                     Exit the menu
+  q | quit                     Exit this menu
 EOF
 }
 
@@ -51,26 +52,29 @@ interactive_menu() {
   while true; do
     cat <<'EOF'
 ========================================
- PKI Operations Menu
+ Leaf Actions
 ========================================
-1) Root CA Actions
-2) Intermediate CA Actions
-3) Leaf Actions
+1) Generate server CSR
+2) Generate admin CSR
+3) Generate client CSR
 h) Help
-q) Quit
+q) Back
 EOF
 
     read -r -p "Select an option: " choice
 
     case "$choice" in
       1)
-        run_script "$ROOT_MENU_SCRIPT"
+        read -r -p "Server common name: " leaf_cn
+        run_script "$GENERATE_LEAF_CSR_SCRIPT" server "$leaf_cn"
         ;;
       2)
-        run_script "$INTERMEDIATE_MENU_SCRIPT"
+        read -r -p "Admin common name: " leaf_cn
+        run_script "$GENERATE_LEAF_CSR_SCRIPT" admin "$leaf_cn"
         ;;
       3)
-        run_script "$LEAF_MENU_SCRIPT"
+        read -r -p "Client common name: " leaf_cn
+        run_script "$GENERATE_LEAF_CSR_SCRIPT" client "$leaf_cn"
         ;;
       h|H)
         print_usage
@@ -90,17 +94,17 @@ main() {
 
   if [[ $# -gt 0 ]]; then
     case "$1" in
-      1|root-ca-actions)
+      1|generate-server-csr)
         shift
-        run_script "$ROOT_MENU_SCRIPT" "$@"
+        run_script "$GENERATE_LEAF_CSR_SCRIPT" server "$@"
         ;;
-      2|intermediate-ca-actions)
+      2|generate-admin-csr)
         shift
-        run_script "$INTERMEDIATE_MENU_SCRIPT" "$@"
+        run_script "$GENERATE_LEAF_CSR_SCRIPT" admin "$@"
         ;;
-      3|leaf-actions)
+      3|generate-client-csr)
         shift
-        run_script "$LEAF_MENU_SCRIPT" "$@"
+        run_script "$GENERATE_LEAF_CSR_SCRIPT" client "$@"
         ;;
       h|help|-h|--help)
         print_usage
