@@ -7,7 +7,6 @@ set -euo pipefail
 #   INTERMEDIATE_CA_OUTPUT_DIR=/opt/pki/intermediate-ca DAYS=397 ./sign_leaf_csr.sh ./csr/web.csr.pem
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR:-${SCRIPT_DIR}/../intermediate_ca}"
-LEAF_OUTPUT_DIR="${LEAF_OUTPUT_DIR:-${SCRIPT_DIR}/../leaf}"
 DAYS="${DAYS:-825}"
 ORG="${ORG:-Example Org PKI}"
 OU="${OU:-Intermediate CA}"
@@ -17,7 +16,7 @@ INTERMEDIATE_CA_CONFIG_FILE="${INTERMEDIATE_CA_CONFIG_FILE:-${SCRIPT_DIR}/../int
 # --- Internal paths ---------------------------------------------------------
 INTERMEDIATE_CERT_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/intermediate-ca.cert.pem"
 LEAF_CERTS_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/certs"
-LEAF_EXPORT_DIR="$LEAF_OUTPUT_DIR/exports"
+LEAF_EXPORT_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/exports"
 
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
   if [ "${ALLOW_NON_ROOT:-0}" != "1" ]; then

@@ -42,6 +42,7 @@ ADMIN_CN="admin.fulltest.local"
 CLIENT_CN="client.fulltest.local"
 SERVER_SAN_IP="192.168.56.102"
 
+rm -rf "${WORK_DIR}"
 mkdir -p "${WORK_DIR}"
 
 echo "Running with explicit settings:"
@@ -107,6 +108,12 @@ LEAF_OUTPUT_DIR="${LEAF_OUTPUT_DIR}" \
 LEAF_CONFIG_FILE="${INTERMEDIATE_CA_CONFIG_FILE}" \
 DAYS="${LEAF_DAYS}" ORG="${LEAF_ORG}" OU="${LEAF_OU}" CN="${LEAF_CN}" \
 "${CREATE_SIGN_PACKAGE_LEAF_SCRIPT}" server "${SERVER_CN}" "${P12_PASSWORD}" --san-ip "${SERVER_SAN_IP}"
+
+echo "[post] Copying p12 bundles from intermediate exports into leaf profile certs folders"
+mkdir -p "${LEAF_OUTPUT_DIR}/server/certs" "${LEAF_OUTPUT_DIR}/admin/certs" "${LEAF_OUTPUT_DIR}/client/certs"
+cp "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/server-${SERVER_CN}.p12" "${LEAF_OUTPUT_DIR}/server/certs/server-${SERVER_CN}.p12"
+cp "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/admin-${ADMIN_CN}.p12" "${LEAF_OUTPUT_DIR}/admin/certs/admin-${ADMIN_CN}.p12"
+cp "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/client-${CLIENT_CN}.p12" "${LEAF_OUTPUT_DIR}/client/certs/client-${CLIENT_CN}.p12"
 
 echo
 echo "Full PKI workflow completed successfully."
