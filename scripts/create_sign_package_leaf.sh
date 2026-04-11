@@ -2,10 +2,24 @@
 set -euo pipefail
 
 # --- User-tunable defaults -------------------------------------------------
-# This script creates/signs/packages a leaf certificate for a profile:
+# End-to-end wrapper for leaf certificate lifecycle:
+#   1) generate/reuse key + CSR (via generate_leaf_csr.sh)
+#   2) sign CSR with intermediate CA (via sign_leaf_csr.sh)
+#   3) export key/cert/chain as password-protected PKCS#12 (.p12)
+#
+# Supported profiles:
 #   server, admin, client
+#
+# SAN handling notes:
+# - For server profile, pass SAN values through to generate_leaf_csr.sh using:
+#     --san-dns <name> and/or --san-ip <ip>
+# - This script forwards all extra args after [p12-password] to CSR generation.
+# - Signed certificate SAN presence depends on intermediate CA signing policy,
+#   which copies only SAN from CSR while hard-coding other leaf extensions.
+#
 # Example:
-#   ./create_sign_package_leaf.sh server api.example.internal 'strong-password'
+#   ./create_sign_package_leaf.sh server api.example.internal 'strong-password' \
+#     --san-dns api.example.internal --san-ip 10.0.0.15
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR:-${SCRIPT_DIR}/../intermediate_ca}"
 LEAF_CONFIG_FILE="${LEAF_CONFIG_FILE:-${SCRIPT_DIR}/../intermediate_ca/intermediate_ca.cnf}"
@@ -25,6 +39,7 @@ fi
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 <server|admin|client> <leaf-common-name> [p12-password]" >&2
+  echo "Optional trailing args are passed to CSR generation (e.g. --san-dns/--san-ip)." >&2
   echo "Or set P12_PASSWORD in the environment." >&2
   exit 1
 fi
@@ -34,10 +49,14 @@ LEAF_CN="$2"
 P12_PASSWORD="${P12_PASSWORD:-}"
 EXTRA_CSR_ARGS=()
 
+# If positional arg 3 is present and not an option flag, treat it as the p12
+# password. Any remaining args are forwarded as CSR-generation options.
 if [ $# -ge 3 ] && [[ "${3:-}" != --* ]]; then
   P12_PASSWORD="$3"
   shift 3
 else
+  # No positional password provided; rely on P12_PASSWORD env var and treat all
+  # remaining args as CSR-generation options.
   shift 2
 fi
 
@@ -80,6 +99,7 @@ if [ ! -f "$CHAIN_FILE" ]; then
 fi
 
 # Generate (or re-use) key + CSR using the dedicated CSR workflow script.
+# EXTRA_CSR_ARGS carries SAN flags for server certificates when supplied.
 LEAF_OUTPUT_DIR="$INTERMEDIATE_TMP_BASE" "$GENERATE_LEAF_CSR_SCRIPT" "$PROFILE" "$LEAF_CN" "${EXTRA_CSR_ARGS[@]}"
 
 # Sign the generated CSR with the intermediate CA.
