@@ -63,17 +63,87 @@ LEAF_CERT_FILE="$LEAF_CERTS_DIR/${CSR_BASENAME/.csr.pem/.cert.pem}"
 if [ -f "$LEAF_CERT_FILE" ]; then
   echo "Leaf certificate already exists: $LEAF_CERT_FILE"
 else
-  echo "Signing leaf CSR with intermediate CA"
-  # Use intermediate CA policy and leaf extension profile from config.
+  # Determine profile from CSR subject OU so signing behavior can enforce
+  # profile-specific extension policy.
+  CSR_SUBJECT="$(openssl req -in "$LEAF_CSR_FILE" -noout -subject -nameopt RFC2253)"
+  CSR_OU="$(echo "$CSR_SUBJECT" | sed -n 's/.*OU=\([^,\/]*\).*/\1/p')"
+  case "$CSR_OU" in
+    "Server Certificates")
+      PROFILE="server"
+      EKU="serverAuth"
+      ;;
+    "Admin Certificates")
+      PROFILE="admin"
+      EKU="clientAuth"
+      ;;
+    "Client Certificates")
+      PROFILE="client"
+      EKU="clientAuth"
+      ;;
+    *)
+      echo "Error: could not determine leaf profile from CSR OU: '${CSR_OU:-<missing>}'." >&2
+      echo "Expected OU one of: Server Certificates, Admin Certificates, Client Certificates." >&2
+      exit 1
+      ;;
+  esac
+
+  # Read SAN from CSR (if present).
+  SAN_LINE="$(
+    openssl req -in "$LEAF_CSR_FILE" -noout -text 2>/dev/null | awk '
+      /Subject Alternative Name/ {capture=1; next}
+      capture && NF {
+        line=$0
+        sub(/^[[:space:]]+/, "", line)
+        print line
+        exit
+      }
+    '
+  )"
+  HAS_SAN=0
+  if [ -n "$SAN_LINE" ]; then
+    HAS_SAN=1
+  fi
+
+  # Only server profile certificates may contain SAN.
+  if [ "$PROFILE" != "server" ] && [ "$HAS_SAN" -eq 1 ]; then
+    echo "Error: CSR for profile '$PROFILE' contains SAN, which is only allowed for server profile." >&2
+    exit 1
+  fi
+  if [ "$PROFILE" = "server" ] && [ "$HAS_SAN" -eq 0 ]; then
+    echo "Error: server CSR must contain SAN." >&2
+    exit 1
+  fi
+
+  TMP_EXTFILE="$(mktemp)"
+  if [ "$HAS_SAN" -eq 1 ]; then
+    LEAF_SAN="$(echo "$SAN_LINE" | sed 's/IP Address:/IP:/g')"
+  fi
+
+  cat > "$TMP_EXTFILE" <<EOF
+[leaf_cert]
+basicConstraints       = critical, CA:false
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid,issuer
+keyUsage               = critical, digitalSignature, keyEncipherment
+extendedKeyUsage       = $EKU
+EOF
+  if [ "$HAS_SAN" -eq 1 ]; then
+    echo "subjectAltName         = $LEAF_SAN" >> "$TMP_EXTFILE"
+  fi
+
+  echo "Signing leaf CSR with intermediate CA (profile: $PROFILE)"
+  # Use CA policy from config; extensions come from generated leaf_cert profile.
   openssl ca \
     -config "$INTERMEDIATE_CA_CONFIG_FILE" \
-    -extensions usr_cert \
+    -extfile "$TMP_EXTFILE" \
+    -extensions leaf_cert \
     -days "$DAYS" \
     -notext \
     -md sha256 \
     -batch \
     -in "$LEAF_CSR_FILE" \
     -out "$LEAF_CERT_FILE"
+  rm -f "$TMP_EXTFILE"
   # Certificates are public material; world-readable is acceptable.
   chmod 444 "$LEAF_CERT_FILE"
 fi

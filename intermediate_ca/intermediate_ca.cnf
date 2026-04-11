@@ -14,6 +14,8 @@ certificate       = $dir/certs/intermediate-ca.cert.pem
 default_md        = sha256
 policy            = policy_loose
 x509_extensions   = usr_cert
+# Do not blindly trust CSR extensions. The signing workflow selectively copies
+# SANs (when present) into a dedicated extension profile.
 copy_extensions   = none
 
 [ policy_loose ]
