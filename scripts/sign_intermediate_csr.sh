@@ -125,12 +125,9 @@ chmod 444 "$CHAIN_FILE"
 # Keep a filename that matches what intermediate_ca expects so operators can
 # copy directly from root_ca/exports/ into intermediate_ca/certs/.
 cp "$INTERMEDIATE_CERT_FILE" "$EXPORT_DIR/intermediate-ca.cert.pem"
-# Backward-compatible export name used by older automation.
-cp "$INTERMEDIATE_CERT_FILE" "$EXPORT_DIR/intermediate-ca.pem"
 cp "$CHAIN_FILE" "$EXPORT_DIR/ca-chain-cert.pem"
 chmod 444 \
   "$EXPORT_DIR/intermediate-ca.cert.pem" \
-  "$EXPORT_DIR/intermediate-ca.pem" \
   "$EXPORT_DIR/ca-chain-cert.pem"
 
 echo

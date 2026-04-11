@@ -8,7 +8,6 @@ set -euo pipefail
 #   ./create_sign_package_leaf.sh server api.example.internal 'strong-password'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR:-${SCRIPT_DIR}/../intermediate_ca}"
-LEAF_OUTPUT_DIR="${LEAF_OUTPUT_DIR:-${SCRIPT_DIR}/../leaf}"
 LEAF_CONFIG_FILE="${LEAF_CONFIG_FILE:-${SCRIPT_DIR}/../intermediate_ca/intermediate_ca.cnf}"
 DAYS="${DAYS:-825}"
 DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING="${DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING:-1}"
@@ -56,20 +55,17 @@ if [[ "$P12_PASSWORD" =~ ^[[:space:]]+$ ]]; then
   exit 1
 fi
 
-PROFILE_DIR="$LEAF_OUTPUT_DIR/$PROFILE"
-PRIVATE_DIR="$PROFILE_DIR/private"
-CSR_DIR="$PROFILE_DIR/csr"
-CERTS_DIR="$PROFILE_DIR/certs"
-EXPORT_DIR="$LEAF_OUTPUT_DIR/exports"
+INTERMEDIATE_EXPORT_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/exports"
+INTERMEDIATE_TMP_BASE="$INTERMEDIATE_CA_OUTPUT_DIR/tmp"
+INTERMEDIATE_TMP_DIR="$INTERMEDIATE_TMP_BASE/$PROFILE"
 
-# Keep artifacts grouped by profile for operational clarity.
-# Example: ../leaf/server/{private,csr,certs} plus ../leaf/exports
-mkdir -p "$PRIVATE_DIR" "$CSR_DIR" "$CERTS_DIR" "$EXPORT_DIR"
+# Keep issued certs and p12 bundles under intermediate_ca/{certs,exports}.
+mkdir -p "$INTERMEDIATE_EXPORT_DIR" "$INTERMEDIATE_TMP_DIR"
 
-KEY_FILE="$PRIVATE_DIR/${LEAF_CN}.key.pem"
-CSR_FILE="$CSR_DIR/${LEAF_CN}.csr.pem"
-CERT_FILE="$CERTS_DIR/${LEAF_CN}.cert.pem"
-P12_FILE="$EXPORT_DIR/${PROFILE}-${LEAF_CN}.p12"
+KEY_FILE="$INTERMEDIATE_TMP_DIR/private/${LEAF_CN}.key.pem"
+CSR_FILE="$INTERMEDIATE_TMP_DIR/csr/${LEAF_CN}.csr.pem"
+CERT_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/${LEAF_CN}.cert.pem"
+P12_FILE="$INTERMEDIATE_EXPORT_DIR/${PROFILE}-${LEAF_CN}.p12"
 CHAIN_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/ca-chain-cert.pem"
 
 if [ ! -f "$LEAF_CONFIG_FILE" ]; then
@@ -84,16 +80,12 @@ if [ ! -f "$CHAIN_FILE" ]; then
 fi
 
 # Generate (or re-use) key + CSR using the dedicated CSR workflow script.
-"$GENERATE_LEAF_CSR_SCRIPT" "$PROFILE" "$LEAF_CN" "${EXTRA_CSR_ARGS[@]}"
+LEAF_OUTPUT_DIR="$INTERMEDIATE_TMP_BASE" "$GENERATE_LEAF_CSR_SCRIPT" "$PROFILE" "$LEAF_CN" "${EXTRA_CSR_ARGS[@]}"
 
 # Sign the generated CSR with the intermediate CA.
 echo "Signing leaf CSR"
 INTERMEDIATE_CA_OUTPUT_DIR="$INTERMEDIATE_CA_OUTPUT_DIR" DAYS="$DAYS" INTERMEDIATE_CA_CONFIG_FILE="$LEAF_CONFIG_FILE" \
-  LEAF_OUTPUT_DIR="$LEAF_OUTPUT_DIR" "$SIGN_LEAF_CSR_SCRIPT" "$CSR_FILE"
-
-# Copy the issued cert from the intermediate cert store into the profile folder.
-cp "$INTERMEDIATE_CA_OUTPUT_DIR/certs/${LEAF_CN}.cert.pem" "$CERT_FILE"
-chmod 444 "$CERT_FILE"
+  "$SIGN_LEAF_CSR_SCRIPT" "$CSR_FILE"
 
 # Build a password-protected PKCS#12 bundle with key + cert + chain.
 echo "Packaging password-protected PKCS#12"
