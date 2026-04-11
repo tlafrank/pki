@@ -42,6 +42,27 @@ ADMIN_CN="admin.fulltest.local"
 CLIENT_CN="client.fulltest.local"
 SERVER_SAN_IP="192.168.56.102"
 
+if [ -t 1 ]; then
+  COLOR_STEP='\033[1;36m'
+  COLOR_POST='\033[1;35m'
+  COLOR_RESET='\033[0m'
+else
+  COLOR_STEP=''
+  COLOR_POST=''
+  COLOR_RESET=''
+fi
+
+print_step() {
+  local step_label="$1"
+  local step_message="$2"
+  echo -e "${COLOR_STEP}${step_label}${COLOR_RESET} ${step_message}"
+}
+
+print_post() {
+  local message="$1"
+  echo -e "${COLOR_POST}[post]${COLOR_RESET} ${message}"
+}
+
 rm -rf "${WORK_DIR}"
 mkdir -p "${WORK_DIR}"
 
@@ -58,35 +79,35 @@ echo "  INTERMEDIATE_DAYS=${INTERMEDIATE_DAYS}, INTERMEDIATE_ORG=${INTERMEDIATE_
 echo "  LEAF_DAYS=${LEAF_DAYS}, LEAF_ORG=${LEAF_ORG}, LEAF_OU=${LEAF_OU}, LEAF_CN=${LEAF_CN}"
 echo "  SERVER_CN=${SERVER_CN}, ADMIN_CN=${ADMIN_CN}, CLIENT_CN=${CLIENT_CN}, SERVER_SAN_IP=${SERVER_SAN_IP}"
 
-echo "[1/6] Creating self-signed root CA"
+print_step "[1/6]" "Creating self-signed root CA"
 ALLOW_NON_ROOT="${ALLOW_NON_ROOT}" \
 ROOT_CA_OUTPUT_DIR="${ROOT_CA_OUTPUT_DIR}" \
 ROOT_CA_CONFIG_FILE="${ROOT_CA_CONFIG_FILE}" \
 DAYS="${ROOT_DAYS}" ORG="${ROOT_ORG}" OU="${ROOT_OU}" CN="${ROOT_CN}" \
 "${ROOT_CA_SCRIPT}"
 
-echo "[2/6] Creating intermediate CA key + CSR"
+print_step "[2/6]" "Creating intermediate CA key + CSR"
 ALLOW_NON_ROOT="${ALLOW_NON_ROOT}" \
 INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR}" \
 INTERMEDIATE_CA_CONFIG_FILE="${INTERMEDIATE_CA_CONFIG_FILE}" \
 DAYS="${INTERMEDIATE_DAYS}" ORG="${INTERMEDIATE_ORG}" OU="${INTERMEDIATE_OU}" CN="${INTERMEDIATE_CN}" \
 "${CREATE_INTERMEDIATE_SCRIPT}"
 
-echo "[3/6] Signing intermediate CA CSR with root CA"
+print_step "[3/6]" "Signing intermediate CA CSR with root CA"
 ALLOW_NON_ROOT="${ALLOW_NON_ROOT}" \
 ROOT_CA_OUTPUT_DIR="${ROOT_CA_OUTPUT_DIR}" \
 ROOT_CA_CONFIG_FILE="${ROOT_CA_CONFIG_FILE}" \
 DAYS="${INTERMEDIATE_DAYS}" ORG="${ROOT_ORG}" OU="${ROOT_OU}" CN="${ROOT_CN}" \
 "${SIGN_INTERMEDIATE_SCRIPT}" "${INTERMEDIATE_CA_OUTPUT_DIR}/csr/intermediate-ca.csr.pem"
 
-echo "[4/6] Copying root exports into intermediate CA folders"
+print_step "[4/6]" "Copying root exports into intermediate CA folders"
 mkdir -p "${INTERMEDIATE_CA_OUTPUT_DIR}/certs" "${INTERMEDIATE_CA_OUTPUT_DIR}/exports"
 cp "${ROOT_CA_OUTPUT_DIR}/exports/intermediate-ca.cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/intermediate-ca.cert.pem"
 cp "${ROOT_CA_OUTPUT_DIR}/exports/ca-chain-cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/ca-chain-cert.pem"
 cp "${ROOT_CA_OUTPUT_DIR}/exports/ca-chain-cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/ca-chain-cert.pem"
 cp "${ROOT_CA_OUTPUT_DIR}/exports/root-ca.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/root-ca.pem"
 
-echo "[5/6] Creating client and admin key/cert + p12 bundles"
+print_step "[5/6]" "Creating client and admin key/cert + p12 bundles"
 ALLOW_NON_ROOT="${ALLOW_NON_ROOT}" \
 INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR}" \
 LEAF_OUTPUT_DIR="${LEAF_OUTPUT_DIR}" \
@@ -101,7 +122,7 @@ LEAF_CONFIG_FILE="${INTERMEDIATE_CA_CONFIG_FILE}" \
 DAYS="${LEAF_DAYS}" ORG="${LEAF_ORG}" OU="${LEAF_OU}" CN="${LEAF_CN}" \
 "${CREATE_SIGN_PACKAGE_LEAF_SCRIPT}" admin "${ADMIN_CN}" "${P12_PASSWORD}"
 
-echo "[6/6] Creating server key/cert + p12 bundle with SAN IP ${SERVER_SAN_IP}"
+print_step "[6/6]" "Creating server key/cert + p12 bundle with SAN IP ${SERVER_SAN_IP}"
 ALLOW_NON_ROOT="${ALLOW_NON_ROOT}" \
 INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR}" \
 LEAF_OUTPUT_DIR="${LEAF_OUTPUT_DIR}" \
@@ -109,7 +130,7 @@ LEAF_CONFIG_FILE="${INTERMEDIATE_CA_CONFIG_FILE}" \
 DAYS="${LEAF_DAYS}" ORG="${LEAF_ORG}" OU="${LEAF_OU}" CN="${LEAF_CN}" \
 "${CREATE_SIGN_PACKAGE_LEAF_SCRIPT}" server "${SERVER_CN}" "${P12_PASSWORD}" --san-ip "${SERVER_SAN_IP}"
 
-echo "[post] Copying p12 bundles from intermediate exports into leaf profile certs folders"
+print_post "Copying p12 bundles from intermediate exports into leaf profile certs folders"
 mkdir -p "${LEAF_OUTPUT_DIR}/server/certs" "${LEAF_OUTPUT_DIR}/admin/certs" "${LEAF_OUTPUT_DIR}/client/certs"
 cp "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/server-${SERVER_CN}.p12" "${LEAF_OUTPUT_DIR}/server/certs/server-${SERVER_CN}.p12"
 cp "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/admin-${ADMIN_CN}.p12" "${LEAF_OUTPUT_DIR}/admin/certs/admin-${ADMIN_CN}.p12"
