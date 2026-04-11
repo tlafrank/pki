@@ -12,7 +12,8 @@ CREATE_SIGN_PACKAGE_LEAF_SCRIPT="${SCRIPTS_DIR}/create_sign_package_leaf.sh"
 
 # Explicit, fixed settings for a deterministic full test run.
 ALLOW_NON_ROOT="1"
-WORK_DIR="${SCRIPT_DIR}/output/fulltest"
+#WORK_DIR="${SCRIPT_DIR}/output/fulltest"
+WORK_DIR="/opt/pki"
 ROOT_CA_OUTPUT_DIR="${WORK_DIR}/root_ca"
 INTERMEDIATE_CA_OUTPUT_DIR="${WORK_DIR}/intermediate_ca"
 LEAF_OUTPUT_DIR="${WORK_DIR}/leaf"
