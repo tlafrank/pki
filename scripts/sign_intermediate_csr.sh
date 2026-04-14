@@ -37,6 +37,8 @@ else
   exit 1
 fi
 
+INTERMEDIATE_CA_NAME="${INTERMEDIATE_CA_NAME:-$(basename "$INTERMEDIATE_CSR_FILE" .csr.pem)}"
+
 if [ ! -f "$INTERMEDIATE_CSR_FILE" ]; then
   echo "Error: intermediate CA CSR not found: $INTERMEDIATE_CSR_FILE" >&2
   exit 1
@@ -45,9 +47,9 @@ fi
 # Resolve output locations under the fixed root CA directory structure.
 CERTS_DIR="$ROOT_CA_OUTPUT_DIR/certs"
 EXPORT_DIR="$ROOT_CA_OUTPUT_DIR/exports"
-INTERMEDIATE_CERT_FILE="$CERTS_DIR/intermediate-ca.cert.pem"
-CHAIN_FILE="$CERTS_DIR/ca-chain-cert.pem"
-TRUSTSTORE_JKS_FILE="$EXPORT_DIR/ca-chain-cert.jks"
+INTERMEDIATE_CERT_FILE="$CERTS_DIR/${INTERMEDIATE_CA_NAME}.cert.pem"
+CHAIN_FILE="$CERTS_DIR/${INTERMEDIATE_CA_NAME}-chain.cert.pem"
+TRUSTSTORE_JKS_FILE="$EXPORT_DIR/${INTERMEDIATE_CA_NAME}.truststore.jks"
 
 # Resolve the root CA OpenSSL config using a list of likely paths.
 if [ -n "${ROOT_CA_CONFIG_FILE:-}" ]; then
@@ -127,11 +129,54 @@ chmod 444 "$CHAIN_FILE"
 # Export copies for downstream tooling.
 # Keep a filename that matches what intermediate_ca expects so operators can
 # copy directly from root_ca/exports/ into intermediate_ca/certs/.
-cp "$INTERMEDIATE_CERT_FILE" "$EXPORT_DIR/intermediate-ca.cert.pem"
-cp "$CHAIN_FILE" "$EXPORT_DIR/ca-chain-cert.pem"
+cp "$INTERMEDIATE_CERT_FILE" "$EXPORT_DIR/${INTERMEDIATE_CA_NAME}.cert.pem"
+cp "$CHAIN_FILE" "$EXPORT_DIR/${INTERMEDIATE_CA_NAME}-chain.cert.pem"
 chmod 444 \
-  "$EXPORT_DIR/intermediate-ca.cert.pem" \
-  "$EXPORT_DIR/ca-chain-cert.pem"
+  "$EXPORT_DIR/${INTERMEDIATE_CA_NAME}.cert.pem" \
+  "$EXPORT_DIR/${INTERMEDIATE_CA_NAME}-chain.cert.pem"
+
+if [ "$CREATE_JKS_TRUSTSTORE" = "1" ]; then
+  if ! command -v keytool >/dev/null 2>&1; then
+    echo "Error: keytool is required to generate JKS truststore output." >&2
+    echo "Install a Java runtime/JDK or set CREATE_JKS_TRUSTSTORE=0." >&2
+    exit 1
+  fi
+
+  if [ -z "$TRUSTSTORE_PASSWORD" ] || [[ "$TRUSTSTORE_PASSWORD" =~ ^[[:space:]]+$ ]]; then
+    echo "Error: TRUSTSTORE_PASSWORD cannot be empty or whitespace-only." >&2
+    exit 1
+  fi
+
+  echo "Generating Java truststore (.jks) from CA chain"
+  rm -f "$TRUSTSTORE_JKS_FILE"
+
+  TMP_CHAIN_DIR="$(mktemp -d)"
+  csplit -s -z -f "$TMP_CHAIN_DIR/cert-" -b "%02d.pem" "$CHAIN_FILE" '/-----BEGIN CERTIFICATE-----/' '{*}' || true
+
+  cert_index=1
+  for cert_file in "$TMP_CHAIN_DIR"/cert-*.pem; do
+    [ -f "$cert_file" ] || continue
+    if ! grep -q -- '-----BEGIN CERTIFICATE-----' "$cert_file"; then
+      continue
+    fi
+    keytool -importcert \
+      -file "$cert_file" \
+      -keystore "$TRUSTSTORE_JKS_FILE" \
+      -storetype JKS \
+      -storepass "$TRUSTSTORE_PASSWORD" \
+      -alias "ca-chain-$cert_index" \
+      -noprompt
+    cert_index=$((cert_index + 1))
+  done
+  rm -rf "$TMP_CHAIN_DIR"
+
+  if [ "$cert_index" -eq 1 ]; then
+    echo "Error: no certificates were found in chain file: $CHAIN_FILE" >&2
+    exit 1
+  fi
+
+  chmod 400 "$TRUSTSTORE_JKS_FILE"
+fi
 
 if [ "$CREATE_JKS_TRUSTSTORE" = "1" ]; then
   if ! command -v keytool >/dev/null 2>&1; then
@@ -182,8 +227,8 @@ echo "Intermediate CA certificate created successfully."
 echo "Intermediate cert: $INTERMEDIATE_CERT_FILE"
 echo "Chain file:        $CHAIN_FILE"
 echo "Exports:"
-echo "  $EXPORT_DIR/intermediate-ca.cert.pem"
-echo "  $EXPORT_DIR/ca-chain-cert.pem"
+echo "  $EXPORT_DIR/${INTERMEDIATE_CA_NAME}.cert.pem"
+echo "  $EXPORT_DIR/${INTERMEDIATE_CA_NAME}-chain.cert.pem"
 if [ "$CREATE_JKS_TRUSTSTORE" = "1" ]; then
   echo "  $TRUSTSTORE_JKS_FILE"
 fi

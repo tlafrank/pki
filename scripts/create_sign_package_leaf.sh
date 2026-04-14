@@ -28,6 +28,11 @@ DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING="${DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGI
 CREATE_JKS_OUTPUT="${CREATE_JKS_OUTPUT:-1}"
 GENERATE_LEAF_CSR_SCRIPT="${SCRIPT_DIR}/generate_leaf_csr.sh"
 SIGN_LEAF_CSR_SCRIPT="${SCRIPT_DIR}/sign_leaf_csr.sh"
+NAME_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/intermediate-ca.name"
+if [ -z "${INTERMEDIATE_CA_NAME:-}" ] && [ -f "$NAME_FILE" ]; then
+  INTERMEDIATE_CA_NAME="$(tr -d '[:space:]' < "$NAME_FILE")"
+fi
+INTERMEDIATE_CA_NAME="${INTERMEDIATE_CA_NAME:-intermediate-ca}"
 
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
   if [ "${ALLOW_NON_ROOT:-0}" != "1" ]; then
@@ -86,6 +91,8 @@ KEY_FILE="$INTERMEDIATE_TMP_DIR/private/${LEAF_CN}.key.pem"
 CSR_FILE="$INTERMEDIATE_TMP_DIR/csr/${LEAF_CN}.csr.pem"
 CERT_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/${LEAF_CN}.cert.pem"
 P12_FILE="$INTERMEDIATE_EXPORT_DIR/${PROFILE}-${LEAF_CN}.p12"
+JKS_KEYSTORE_FILE="$INTERMEDIATE_EXPORT_DIR/${PROFILE}-${LEAF_CN}.keystore.jks"
+CHAIN_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/${INTERMEDIATE_CA_NAME}-chain.cert.pem"
 JKS_KEYSTORE_FILE="$INTERMEDIATE_EXPORT_DIR/${PROFILE}-${LEAF_CN}.jks"
 CHAIN_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/ca-chain-cert.pem"
 
@@ -96,7 +103,7 @@ fi
 
 if [ ! -f "$CHAIN_FILE" ]; then
   echo "Error: chain file not found: $CHAIN_FILE" >&2
-  echo "Sign the intermediate CA first so ca-chain-cert.pem exists." >&2
+  echo "Sign the intermediate CA first so the named chain file exists." >&2
   exit 1
 fi
 
@@ -107,6 +114,7 @@ LEAF_OUTPUT_DIR="$INTERMEDIATE_TMP_BASE" "$GENERATE_LEAF_CSR_SCRIPT" "$PROFILE" 
 # Sign the generated CSR with the intermediate CA.
 echo "Signing leaf CSR"
 INTERMEDIATE_CA_OUTPUT_DIR="$INTERMEDIATE_CA_OUTPUT_DIR" DAYS="$DAYS" INTERMEDIATE_CA_CONFIG_FILE="$LEAF_CONFIG_FILE" \
+  INTERMEDIATE_CA_NAME="$INTERMEDIATE_CA_NAME" \
   "$SIGN_LEAF_CSR_SCRIPT" "$CSR_FILE"
 
 # Build a password-protected PKCS#12 bundle with key + cert + chain.

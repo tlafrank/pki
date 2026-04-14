@@ -409,9 +409,9 @@ def batch_create_leaf_p12(req: CreateLeafBatchRequest) -> BatchCreateLeafRespons
                 arcname = f"{_sanitize_filename(item.profile)}/{_sanitize_filename(path.name)}"
                 archive.write(path, arcname=arcname)
 
-        truststore_path = exports_dir / "ca-chain.truststore.jks"
-        if truststore_path.exists():
-            archive.write(truststore_path, arcname=_sanitize_filename(truststore_path.name))
+        for truststore_path in sorted(exports_dir.glob("*.truststore.jks")):
+            if truststore_path.is_file():
+                archive.write(truststore_path, arcname=_sanitize_filename(truststore_path.name))
 
         manifest_lines = ["profile,common_name,p12_filename,keystore_jks_filename"]
         for item, outputs in generated:

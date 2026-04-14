@@ -15,6 +15,21 @@ ORG="${ORG:-Example Org PKI}"
 OU="${OU:-Intermediate CA}"
 CN="${CN:-Example Intermediate CA}"
 
+sanitize_name() {
+  local value="$1"
+  value="$(echo "$value" | tr '[:upper:]' '[:lower:]')"
+  value="$(echo "$value" | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
+  if [ -z "$value" ]; then
+    value="intermediate-ca"
+  fi
+  if [[ "$value" != *-intermediate-ca ]]; then
+    value="${value}-intermediate-ca"
+  fi
+  echo "$value"
+}
+
+INTERMEDIATE_CA_NAME="${INTERMEDIATE_CA_NAME:-$(sanitize_name "$CN")}"
+
 # OpenSSL configuration file to use (kept external to this script).
 INTERMEDIATE_CA_CONFIG_FILE="${INTERMEDIATE_CA_CONFIG_FILE:-${SCRIPT_DIR}/../intermediate_ca/intermediate_ca.cnf}"
 
@@ -26,8 +41,9 @@ NEWCERTS_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/newcerts"
 PRIVATE_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/private"
 EXPORT_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/exports"
 
-KEY_FILE="$PRIVATE_DIR/intermediate-ca.key.pem"
-CSR_FILE="$CSR_DIR/intermediate-ca.csr.pem"
+KEY_FILE="$PRIVATE_DIR/${INTERMEDIATE_CA_NAME}.key.pem"
+CSR_FILE="$CSR_DIR/${INTERMEDIATE_CA_NAME}.csr.pem"
+NAME_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/intermediate-ca.name"
 
 # Check that the script is being run as root.
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
@@ -50,7 +66,7 @@ echo "Initialising intermediate CA at: $INTERMEDIATE_CA_OUTPUT_DIR"
 echo "Using OpenSSL config: $INTERMEDIATE_CA_CONFIG_FILE"
 
 # Export variables so OpenSSL config can consume them through $ENV::... values.
-export INTERMEDIATE_CA_OUTPUT_DIR DAYS ORG OU CN
+export INTERMEDIATE_CA_OUTPUT_DIR DAYS ORG OU CN INTERMEDIATE_CA_NAME
 
 # Create the directory skeleton needed by OpenSSL CA operations.
 mkdir -p \
@@ -68,6 +84,9 @@ chmod 700 "$PRIVATE_DIR"
 if [ ! -f "$INTERMEDIATE_CA_OUTPUT_DIR/index.txt" ]; then
   touch "$INTERMEDIATE_CA_OUTPUT_DIR/index.txt"
 fi
+
+echo "$INTERMEDIATE_CA_NAME" > "$NAME_FILE"
+chmod 444 "$NAME_FILE"
 
 # Starting serial number for certificates signed by this CA.
 if [ ! -f "$INTERMEDIATE_CA_OUTPUT_DIR/serial" ]; then
@@ -109,6 +128,7 @@ echo
 echo "Intermediate CA key and CSR created successfully."
 echo "Private key:  $KEY_FILE"
 echo "CSR:          $CSR_FILE"
+echo "Name marker:  $NAME_FILE"
 echo "Config:       $INTERMEDIATE_CA_CONFIG_FILE"
 echo
 echo "Next step: sign the CSR with the root CA"
