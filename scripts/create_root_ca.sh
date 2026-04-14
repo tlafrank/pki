@@ -28,8 +28,8 @@ NEWCERTS_DIR="$ROOT_CA_OUTPUT_DIR/newcerts"
 PRIVATE_DIR="$ROOT_CA_OUTPUT_DIR/private"
 EXPORT_DIR="$ROOT_CA_OUTPUT_DIR/exports"
 
-KEY_FILE="$PRIVATE_DIR/root-ca.key.pem"
-CERT_FILE="$CERTS_DIR/root-ca.cert.pem"
+KEY_FILE="$PRIVATE_DIR/ca-root.key"
+CERT_FILE="$CERTS_DIR/ca-root.cert.pem"
 
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
   if [ "${ALLOW_NON_ROOT:-0}" != "1" ]; then
@@ -108,8 +108,8 @@ fi
 
 echo "Packaging root certificate"
 # PEM copy with an easy-to-share/export-friendly name.
-cp "$CERT_FILE" "$EXPORT_DIR/root-ca.cert.pem"
-chmod 444 "$EXPORT_DIR/root-ca.cert.pem"
+cp "$CERT_FILE" "$EXPORT_DIR/ca-root.cert.pem"
+chmod 444 "$EXPORT_DIR/ca-root.cert.pem"
 
 # CRT (PEM encoding, .crt extension) for tools that expect that extension.
 #openssl x509 -in "$CERT_FILE" -out "$EXPORT_DIR/root-ca.crt"
@@ -125,7 +125,7 @@ echo "Private key:  $KEY_FILE"
 echo "Certificate:  $CERT_FILE"
 echo "Config:       $ROOT_CA_CONFIG_FILE"
 echo "Exports:"
-echo "  $EXPORT_DIR/root-ca.pem"
+echo "  $EXPORT_DIR/ca-root.cert.pem"
 #echo "  $EXPORT_DIR/root-ca.crt"
 #echo "  $EXPORT_DIR/root-ca.der"
 echo

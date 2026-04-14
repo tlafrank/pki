@@ -36,11 +36,11 @@ docker compose up --build
 ## Key handling
 
 - `create_sign_package_leaf.sh` now deletes the generated leaf private key after successful PKCS#12 packaging by default.
-- Intermediate CA artifacts now use a meaningful, name-based prefix (derived from `INTERMEDIATE_CA_NAME` or sanitized `CN`) and keep the `-intermediate-ca` suffix (for example: `payments-intermediate-ca.csr.pem`, `payments-intermediate-ca.cert.pem`, and `payments-intermediate-ca-chain.cert.pem`).
-- `create_sign_package_leaf.sh` emits a per-certificate Java keystore output for `server` profile certificates by default:
-  - `server-<common-name>.keystore.jks` (private key + certificate chain)
-- `sign_intermediate_csr.sh` emits the shared CA truststore once per CA chain:
-  - `<intermediate-ca-name>.truststore.jks` (stored in `root_ca/exports/`)
+- CA artifacts use a consistent `ca-<name>` naming convention (`ca-root` for root and `ca-<intermediate-name>` for intermediates): `<CA-NAME>.csr`, `<CA-NAME>.key`, `<CA-NAME>.cert.pem`, and `<CA-NAME>.chain.cert.pem`.
+- `create_sign_package_leaf.sh` emits per-certificate package/keystore outputs with the same `<common-name>` base name:
+  - `<common-name>.p12` and `<common-name>.jks` (with `<common-name>.cert.pem` for the issued leaf cert)
+- `sign_intermediate_csr.sh` emits the shared CA chain JKS using the same base name as the chain PEM:
+  - `<intermediate-ca-name>.chain.jks` (stored in `root_ca/exports/`)
 - To retain private keys on disk, set `DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING=0` before running the workflow.
 - To skip JKS generation, set `CREATE_JKS_OUTPUT=0` before running the workflow.
 - To skip truststore generation during intermediate signing, set `CREATE_JKS_TRUSTSTORE=0`.

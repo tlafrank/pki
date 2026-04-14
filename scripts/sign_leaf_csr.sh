@@ -20,10 +20,22 @@ OU="${OU:-Intermediate CA}"
 CN="${CN:-Example Intermediate CA}"
 INTERMEDIATE_CA_CONFIG_FILE="${INTERMEDIATE_CA_CONFIG_FILE:-${SCRIPT_DIR}/../intermediate_ca/intermediate_ca.cnf}"
 NAME_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/intermediate-ca.name"
+normalize_ca_name() {
+  local value="$1"
+  value="$(echo "$value" | tr '[:upper:]' '[:lower:]')"
+  value="$(echo "$value" | sed -E 's/[^a-z0-9-]+/-/g; s/^-+//; s/-+$//')"
+  if [ -z "$value" ]; then
+    value="ca-intermediate"
+  fi
+  if [[ "$value" != ca-* ]]; then
+    value="ca-${value}"
+  fi
+  echo "$value"
+}
 if [ -z "${INTERMEDIATE_CA_NAME:-}" ] && [ -f "$NAME_FILE" ]; then
   INTERMEDIATE_CA_NAME="$(tr -d '[:space:]' < "$NAME_FILE")"
 fi
-INTERMEDIATE_CA_NAME="${INTERMEDIATE_CA_NAME:-intermediate-ca}"
+INTERMEDIATE_CA_NAME="$(normalize_ca_name "${INTERMEDIATE_CA_NAME:-ca-intermediate}")"
 
 # --- Internal paths ---------------------------------------------------------
 INTERMEDIATE_CERT_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/${INTERMEDIATE_CA_NAME}.cert.pem"

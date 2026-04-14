@@ -21,7 +21,20 @@ CN="${CN:-Example Root CA}"
 CREATE_JKS_TRUSTSTORE="${CREATE_JKS_TRUSTSTORE:-1}"
 TRUSTSTORE_PASSWORD="${TRUSTSTORE_PASSWORD:-${JKS_PASSWORD:-changeit}}"
 
-ROOT_CERT_FILE="$ROOT_CA_OUTPUT_DIR/certs/root-ca.cert.pem"
+ROOT_CERT_FILE="$ROOT_CA_OUTPUT_DIR/certs/ca-root.cert.pem"
+
+normalize_ca_name() {
+  local value="$1"
+  value="$(echo "$value" | tr '[:upper:]' '[:lower:]')"
+  value="$(echo "$value" | sed -E 's/[^a-z0-9-]+/-/g; s/^-+//; s/-+$//')"
+  if [ -z "$value" ]; then
+    value="ca-intermediate"
+  fi
+  if [[ "$value" != ca-* ]]; then
+    value="ca-${value}"
+  fi
+  echo "$value"
+}
 
 # Check that the script is being run as root.
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
@@ -44,7 +57,8 @@ else
   exit 1
 fi
 
-INTERMEDIATE_CA_NAME="${INTERMEDIATE_CA_NAME:-$(basename "$INTERMEDIATE_CSR_FILE" .csr.pem)}"
+INTERMEDIATE_CA_NAME="${INTERMEDIATE_CA_NAME:-$(basename "$INTERMEDIATE_CSR_FILE" .csr)}"
+INTERMEDIATE_CA_NAME="$(normalize_ca_name "$INTERMEDIATE_CA_NAME")"
 
 if [ ! -f "$INTERMEDIATE_CSR_FILE" ]; then
   echo "Error: intermediate CA CSR not found: $INTERMEDIATE_CSR_FILE" >&2
@@ -55,8 +69,8 @@ fi
 CERTS_DIR="$ROOT_CA_OUTPUT_DIR/certs"
 EXPORT_DIR="$ROOT_CA_OUTPUT_DIR/exports"
 INTERMEDIATE_CERT_FILE="$CERTS_DIR/${INTERMEDIATE_CA_NAME}.cert.pem"
-CHAIN_FILE="$CERTS_DIR/${INTERMEDIATE_CA_NAME}-chain.cert.pem"
-TRUSTSTORE_JKS_FILE="$EXPORT_DIR/${INTERMEDIATE_CA_NAME}.truststore.jks"
+CHAIN_FILE="$CERTS_DIR/${INTERMEDIATE_CA_NAME}.chain.cert.pem"
+TRUSTSTORE_JKS_FILE="$EXPORT_DIR/${INTERMEDIATE_CA_NAME}.chain.jks"
 
 # Resolve the root CA OpenSSL config using a list of likely paths.
 if [ -n "${ROOT_CA_CONFIG_FILE:-}" ]; then
@@ -92,7 +106,7 @@ fi
 # Check prerequisite root CA artifacts.
 if [ ! -f "$ROOT_CERT_FILE" ]; then
   ALT_ROOT_CA_OUTPUT_DIR="/opt/pki/root-ca"
-  ALT_ROOT_CERT_FILE="$ALT_ROOT_CA_OUTPUT_DIR/certs/root-ca.cert.pem"
+  ALT_ROOT_CERT_FILE="$ALT_ROOT_CA_OUTPUT_DIR/certs/ca-root.cert.pem"
   if [ -f "$ALT_ROOT_CERT_FILE" ]; then
     ROOT_CA_OUTPUT_DIR="$ALT_ROOT_CA_OUTPUT_DIR"
     ROOT_CERT_FILE="$ALT_ROOT_CERT_FILE"
@@ -137,10 +151,10 @@ chmod 444 "$CHAIN_FILE"
 # Keep a filename that matches what intermediate_ca expects so operators can
 # copy directly from root_ca/exports/ into intermediate_ca/certs/.
 cp "$INTERMEDIATE_CERT_FILE" "$EXPORT_DIR/${INTERMEDIATE_CA_NAME}.cert.pem"
-cp "$CHAIN_FILE" "$EXPORT_DIR/${INTERMEDIATE_CA_NAME}-chain.cert.pem"
+cp "$CHAIN_FILE" "$EXPORT_DIR/${INTERMEDIATE_CA_NAME}.chain.cert.pem"
 chmod 444 \
   "$EXPORT_DIR/${INTERMEDIATE_CA_NAME}.cert.pem" \
-  "$EXPORT_DIR/${INTERMEDIATE_CA_NAME}-chain.cert.pem"
+  "$EXPORT_DIR/${INTERMEDIATE_CA_NAME}.chain.cert.pem"
 
 if [ "$CREATE_JKS_TRUSTSTORE" = "1" ]; then
   if ! command -v keytool >/dev/null 2>&1; then
@@ -192,7 +206,7 @@ echo "Intermediate cert: $INTERMEDIATE_CERT_FILE"
 echo "Chain file:        $CHAIN_FILE"
 echo "Exports:"
 echo "  $EXPORT_DIR/${INTERMEDIATE_CA_NAME}.cert.pem"
-echo "  $EXPORT_DIR/${INTERMEDIATE_CA_NAME}-chain.cert.pem"
+echo "  $EXPORT_DIR/${INTERMEDIATE_CA_NAME}.chain.cert.pem"
 if [ "$CREATE_JKS_TRUSTSTORE" = "1" ]; then
   echo "  $TRUSTSTORE_JKS_FILE"
 fi
