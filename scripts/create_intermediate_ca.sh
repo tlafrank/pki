@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# 
+
+
+
 
 # Script purpose:
 # - Creates intermediate CA private key + CSR with a meaningful intermediate CA name.

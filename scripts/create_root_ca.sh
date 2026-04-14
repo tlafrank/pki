@@ -24,7 +24,6 @@ ROOT_CA_CONFIG_FILE="${ROOT_CA_CONFIG_FILE:-${SCRIPT_DIR}/../root_ca/root_ca.cnf
 # OpenSSL's CA tooling expects these files/directories to exist.
 CERTS_DIR="$ROOT_CA_OUTPUT_DIR/certs"
 CRL_DIR="$ROOT_CA_OUTPUT_DIR/crl"
-CSR_DIR="$ROOT_CA_OUTPUT_DIR/csr"
 NEWCERTS_DIR="$ROOT_CA_OUTPUT_DIR/newcerts"
 PRIVATE_DIR="$ROOT_CA_OUTPUT_DIR/private"
 EXPORT_DIR="$ROOT_CA_OUTPUT_DIR/exports"
@@ -58,7 +57,6 @@ export ROOT_CA_OUTPUT_DIR DAYS ORG OU CN
 mkdir -p \
   "$CERTS_DIR" \
   "$CRL_DIR" \
-  "$CSR_DIR" \
   "$NEWCERTS_DIR" \
   "$PRIVATE_DIR" \
   "$EXPORT_DIR"
@@ -110,8 +108,8 @@ fi
 
 echo "Packaging root certificate"
 # PEM copy with an easy-to-share/export-friendly name.
-cp "$CERT_FILE" "$EXPORT_DIR/root-ca.pem"
-chmod 444 "$EXPORT_DIR/root-ca.pem"
+cp "$CERT_FILE" "$EXPORT_DIR/root-ca.cert.pem"
+chmod 444 "$EXPORT_DIR/root-ca.cert.pem"
 
 # CRT (PEM encoding, .crt extension) for tools that expect that extension.
 #openssl x509 -in "$CERT_FILE" -out "$EXPORT_DIR/root-ca.crt"
