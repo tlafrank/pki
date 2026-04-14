@@ -25,6 +25,7 @@ INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR:-${SCRIPT_DIR}/../inter
 LEAF_CONFIG_FILE="${LEAF_CONFIG_FILE:-${SCRIPT_DIR}/../intermediate_ca/intermediate_ca.cnf}"
 DAYS="${DAYS:-825}"
 DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING="${DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING:-1}"
+CREATE_JKS_OUTPUT="${CREATE_JKS_OUTPUT:-1}"
 GENERATE_LEAF_CSR_SCRIPT="${SCRIPT_DIR}/generate_leaf_csr.sh"
 SIGN_LEAF_CSR_SCRIPT="${SCRIPT_DIR}/sign_leaf_csr.sh"
 
@@ -85,6 +86,8 @@ KEY_FILE="$INTERMEDIATE_TMP_DIR/private/${LEAF_CN}.key.pem"
 CSR_FILE="$INTERMEDIATE_TMP_DIR/csr/${LEAF_CN}.csr.pem"
 CERT_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/${LEAF_CN}.cert.pem"
 P12_FILE="$INTERMEDIATE_EXPORT_DIR/${PROFILE}-${LEAF_CN}.p12"
+JKS_KEYSTORE_FILE="$INTERMEDIATE_EXPORT_DIR/${PROFILE}-${LEAF_CN}.keystore.jks"
+JKS_TRUSTSTORE_FILE="$INTERMEDIATE_EXPORT_DIR/${PROFILE}-${LEAF_CN}.truststore.jks"
 CHAIN_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/ca-chain-cert.pem"
 
 if [ ! -f "$LEAF_CONFIG_FILE" ]; then
@@ -117,6 +120,61 @@ openssl pkcs12 -export \
   -passout "pass:$P12_PASSWORD"
 chmod 400 "$P12_FILE"
 
+if [ "$CREATE_JKS_OUTPUT" = "1" ]; then
+  if ! command -v keytool >/dev/null 2>&1; then
+    echo "Error: keytool is required to generate JKS outputs." >&2
+    echo "Install a Java runtime/JDK or set CREATE_JKS_OUTPUT=0." >&2
+    exit 1
+  fi
+
+  JKS_PASSWORD="${JKS_PASSWORD:-$P12_PASSWORD}"
+  if [ -z "$JKS_PASSWORD" ] || [[ "$JKS_PASSWORD" =~ ^[[:space:]]+$ ]]; then
+    echo "Error: JKS password cannot be empty or whitespace-only." >&2
+    exit 1
+  fi
+
+  rm -f "$JKS_KEYSTORE_FILE" "$JKS_TRUSTSTORE_FILE"
+
+  echo "Generating Java keystore (.jks) from PKCS#12 bundle"
+  keytool -importkeystore \
+    -srckeystore "$P12_FILE" \
+    -srcstoretype PKCS12 \
+    -srcstorepass "$P12_PASSWORD" \
+    -destkeystore "$JKS_KEYSTORE_FILE" \
+    -deststoretype JKS \
+    -deststorepass "$JKS_PASSWORD" \
+    -destkeypass "$JKS_PASSWORD" \
+    -noprompt
+
+  echo "Generating Java truststore (.jks) from CA chain"
+  TMP_CHAIN_DIR="$(mktemp -d)"
+  csplit -s -z -f "$TMP_CHAIN_DIR/cert-" -b "%02d.pem" "$CHAIN_FILE" '/-----BEGIN CERTIFICATE-----/' '{*}' || true
+
+  cert_index=1
+  for cert_file in "$TMP_CHAIN_DIR"/cert-*.pem; do
+    [ -f "$cert_file" ] || continue
+    if ! grep -q '-----BEGIN CERTIFICATE-----' "$cert_file"; then
+      continue
+    fi
+    keytool -importcert \
+      -file "$cert_file" \
+      -keystore "$JKS_TRUSTSTORE_FILE" \
+      -storetype JKS \
+      -storepass "$JKS_PASSWORD" \
+      -alias "ca-chain-$cert_index" \
+      -noprompt
+    cert_index=$((cert_index + 1))
+  done
+  rm -rf "$TMP_CHAIN_DIR"
+
+  if [ "$cert_index" -eq 1 ]; then
+    echo "Error: no certificates were found in chain file: $CHAIN_FILE" >&2
+    exit 1
+  fi
+
+  chmod 400 "$JKS_KEYSTORE_FILE" "$JKS_TRUSTSTORE_FILE"
+fi
+
 # Remove the plaintext private key after successful packaging by default.
 if [ "$DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING" = "1" ]; then
   if [ -f "$KEY_FILE" ]; then
@@ -138,3 +196,7 @@ else
 fi
 echo "Certificate: $CERT_FILE"
 echo "P12 file:    $P12_FILE"
+if [ "$CREATE_JKS_OUTPUT" = "1" ]; then
+  echo "JKS keystore:   $JKS_KEYSTORE_FILE"
+  echo "JKS truststore: $JKS_TRUSTSTORE_FILE"
+fi
