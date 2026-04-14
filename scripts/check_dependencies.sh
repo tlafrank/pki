@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Script purpose:
+# - Verifies required CLI tools and Python packages used by this repository.
+# Interacts with:
+# - api/requirements-dev.txt (and nested -r includes) for package checks.
+# - scripts and API runtime prerequisites (openssl, keytool, python3).
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 

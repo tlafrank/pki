@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Script purpose:
+# - End-to-end leaf workflow: generate CSR, sign cert, package PKCS#12, optionally emit server JKS.
+# Interacts with:
+# - scripts/generate_leaf_csr.sh for key/CSR generation.
+# - scripts/sign_leaf_csr.sh for certificate issuance.
+# - scripts/sign_intermediate_csr.sh outputs for named chain/trust material.
+
 # --- User-tunable defaults -------------------------------------------------
 # End-to-end wrapper for leaf certificate lifecycle:
 #   1) generate/reuse key + CSR (via generate_leaf_csr.sh)

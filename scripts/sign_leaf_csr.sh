@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Script purpose:
+# - Signs leaf CSRs with the intermediate CA while enforcing profile/SAN policy.
+# Interacts with:
+# - scripts/create_intermediate_ca.sh for intermediate-ca.name and CA material.
+# - scripts/create_sign_package_leaf.sh, which invokes this script during packaging.
+# - intermediate_ca/intermediate_ca.cnf for OpenSSL CA settings.
+
 # --- User-tunable defaults -------------------------------------------------
 # This script signs leaf CSRs with the intermediate CA.
 # You can override defaults at runtime, for example:

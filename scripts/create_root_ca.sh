@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Script purpose:
+# - Bootstraps the root CA directory structure and issues a self-signed root CA cert.
+# Interacts with:
+# - root_ca/root_ca.cnf for OpenSSL CA configuration.
+# - scripts/sign_intermediate_csr.sh, which consumes root CA artifacts from this script.
+
 # --- User-tunable defaults -------------------------------------------------
 # You can override any of these at runtime, for example:
 #   ROOT_CA_OUTPUT_DIR=/tmp/root_ca DAYS=3650 ./create_root_ca.sh

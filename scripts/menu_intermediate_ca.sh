@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Script purpose:
+# - Intermediate-CA submenu wrapper for creating intermediate CA state and issuing leaf artifacts.
+# Interacts with:
+# - scripts/create_intermediate_ca.sh
+# - scripts/create_sign_package_leaf.sh
+# - scripts/sign_leaf_csr.sh
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR="${SCRIPT_DIR}/../intermediate_ca"
 # Intermediate CA submenu owns tasks performed by the intermediate tier:

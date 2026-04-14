@@ -5,6 +5,13 @@ set -euo pipefail
 
 
 
+# Script purpose:
+# - Creates intermediate CA private key + CSR with a meaningful intermediate CA name.
+# Interacts with:
+# - intermediate_ca/intermediate_ca.cnf for OpenSSL request settings.
+# - scripts/sign_intermediate_csr.sh, which signs the generated CSR.
+# - scripts/sign_leaf_csr.sh and scripts/create_sign_package_leaf.sh via intermediate-ca.name.
+
 # --- User-tunable defaults -------------------------------------------------
 # You can override any of these at runtime, for example:
 #   INTERMEDIATE_CA_OUTPUT_DIR=/tmp/intermediate-ca DAYS=3650 ./create_intermediate_ca.sh

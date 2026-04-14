@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Script purpose:
+# - Leaf-only submenu wrapper for generating server/admin/client CSRs.
+# Interacts with:
+# - scripts/generate_leaf_csr.sh for all menu actions.
+# - scripts/menu.sh when used as a submenu.
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Leaf submenu is intentionally CSR-focused only.
 # Signing and packaging actions are performed in the intermediate menu.
