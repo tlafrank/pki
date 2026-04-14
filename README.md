@@ -40,7 +40,7 @@ docker compose up --build
 - `create_sign_package_leaf.sh` emits per-certificate package/keystore outputs with the same `<common-name>` base name:
   - `<common-name>.p12` and `<common-name>.jks` (with `<common-name>.cert.pem` for the issued leaf cert)
 - `sign_intermediate_csr.sh` emits the shared CA chain JKS using the same base name as the chain PEM:
-  - `<intermediate-ca-name>.chain.jks` (stored in `root_ca/exports/`)
+  - `<intermediate-ca-name>.chain.cert.jks` (stored in `root_ca/exports/`)
 - To retain private keys on disk, set `DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING=0` before running the workflow.
 - To skip JKS generation, set `CREATE_JKS_OUTPUT=0` before running the workflow.
 - To skip truststore generation during intermediate signing, set `CREATE_JKS_TRUSTSTORE=0`.

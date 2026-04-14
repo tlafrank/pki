@@ -100,7 +100,7 @@ mkdir -p "${INTERMEDIATE_CA_OUTPUT_DIR}/certs" "${INTERMEDIATE_CA_OUTPUT_DIR}/ex
 cp "${ROOT_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/${INTERMEDIATE_CA_NAME}.cert.pem"
 cp "${ROOT_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.chain.cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/${INTERMEDIATE_CA_NAME}.chain.cert.pem"
 cp "${ROOT_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.chain.cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.chain.cert.pem"
-cp "${ROOT_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.chain.jks" "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.chain.jks"
+cp "${ROOT_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.chain.cert.jks" "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.chain.cert.jks"
 cp "${ROOT_CA_OUTPUT_DIR}/exports/ca-root.cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/ca-root.cert.pem"
 
 echo -e "${COLOR_HIGHLIGHT}[5/6]" "Creating client and admin key/cert + p12 bundles${COLOR_RESET}"

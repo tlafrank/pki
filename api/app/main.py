@@ -409,7 +409,7 @@ def batch_create_leaf_p12(req: CreateLeafBatchRequest) -> BatchCreateLeafRespons
                 arcname = f"{_sanitize_filename(item.profile)}/{_sanitize_filename(path.name)}"
                 archive.write(path, arcname=arcname)
 
-        for truststore_path in sorted(exports_dir.glob("*.chain.jks")):
+        for truststore_path in sorted(exports_dir.glob("*.chain.cert.jks")):
             if truststore_path.is_file():
                 archive.write(truststore_path, arcname=_sanitize_filename(truststore_path.name))
 
