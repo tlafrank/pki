@@ -104,8 +104,8 @@ fi
 
 echo "Packaging root certificate"
 # PEM copy with an easy-to-share/export-friendly name.
-cp "$CERT_FILE" "$EXPORT_DIR/root-ca.pem"
-chmod 444 "$EXPORT_DIR/root-ca.pem"
+cp "$CERT_FILE" "$EXPORT_DIR/root-ca.cert.pem"
+chmod 444 "$EXPORT_DIR/root-ca.cert.pem"
 
 # CRT (PEM encoding, .crt extension) for tools that expect that extension.
 #openssl x509 -in "$CERT_FILE" -out "$EXPORT_DIR/root-ca.crt"
