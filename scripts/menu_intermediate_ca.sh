@@ -9,7 +9,7 @@ set -euo pipefail
 # - scripts/sign_leaf_csr.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR="${SCRIPT_DIR}/../intermediate_ca"
+DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR="${DEFAULT_PKI_BASE_DIR:-/opt/pki}/intermediate-ca"
 # Intermediate CA submenu owns tasks performed by the intermediate tier:
 # - bootstrap intermediate CA key+CSR
 # - issue leaf credentials and package PKCS#12 bundles
@@ -17,6 +17,48 @@ DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR="${SCRIPT_DIR}/../intermediate_ca"
 INTERMEDIATE_CA_CREATE_SCRIPT="${SCRIPT_DIR}/create_intermediate_ca.sh"
 LEAF_CREATE_SIGN_PACKAGE_SCRIPT="${SCRIPT_DIR}/create_sign_package_leaf.sh"
 LEAF_SIGN_CSR_SCRIPT="${SCRIPT_DIR}/sign_leaf_csr.sh"
+
+set_default_intermediate_ca_env() {
+  export INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR:-$DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR}"
+
+  if [[ -z "${INTERMEDIATE_CA_CONFIG_FILE:-}" ]]; then
+    if [[ -f "${INTERMEDIATE_CA_OUTPUT_DIR}/intermediate_ca.cnf" ]]; then
+      export INTERMEDIATE_CA_CONFIG_FILE="${INTERMEDIATE_CA_OUTPUT_DIR}/intermediate_ca.cnf"
+    elif [[ -f "${INTERMEDIATE_CA_OUTPUT_DIR}/intermediate-ca.cnf" ]]; then
+      export INTERMEDIATE_CA_CONFIG_FILE="${INTERMEDIATE_CA_OUTPUT_DIR}/intermediate-ca.cnf"
+    elif [[ -f "${SCRIPT_DIR}/../intermediate_ca/intermediate_ca.cnf" ]]; then
+      export INTERMEDIATE_CA_CONFIG_FILE="${SCRIPT_DIR}/../intermediate_ca/intermediate_ca.cnf"
+    elif [[ -f "${SCRIPT_DIR}/../intermediate_ca/intermediate-ca.cnf" ]]; then
+      export INTERMEDIATE_CA_CONFIG_FILE="${SCRIPT_DIR}/../intermediate_ca/intermediate-ca.cnf"
+    fi
+  fi
+
+  export LEAF_CONFIG_FILE="${LEAF_CONFIG_FILE:-${INTERMEDIATE_CA_CONFIG_FILE:-}}"
+}
+
+prompt_with_default() {
+  local prompt="$1"
+  local default_value="$2"
+  local user_value
+
+  read -r -e -p "$prompt [$default_value]: " user_value
+  if [[ -z "$user_value" ]]; then
+    user_value="$default_value"
+  fi
+  printf '%s' "$user_value"
+}
+
+normalize_ca_name() {
+  local value="$1"
+  value="$(echo "$value" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/^-+//; s/-+$//')"
+  if [[ -z "$value" ]]; then
+    value="ca-intermediate"
+  fi
+  if [[ "$value" != ca-* ]]; then
+    value="ca-${value}"
+  fi
+  printf '%s' "$value"
+}
 
 resolve_intermediate_ca_name() {
   local intermediate_dir="${INTERMEDIATE_CA_OUTPUT_DIR:-$DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR}"
@@ -142,32 +184,34 @@ EOF
 
     case "$choice" in
       1)
-        run_script "$INTERMEDIATE_CA_CREATE_SCRIPT"
+        intermediate_name="$(prompt_with_default "Intermediate CA name" "$(resolve_intermediate_ca_name)")"
+        intermediate_name="$(normalize_ca_name "$intermediate_name")"
+        INTERMEDIATE_CA_NAME="$intermediate_name" CN="${CN:-$intermediate_name}" run_script "$INTERMEDIATE_CA_CREATE_SCRIPT"
         ;;
       2)
         require_intermediate_certificate || continue
         require_chain_file || continue
-        read -r -p "Server common name: " leaf_cn
+        leaf_cn="$(prompt_with_default "Server common name" "server.example.internal")"
         p12_password="$(read_p12_password 'P12 password: ')"
         run_script "$LEAF_CREATE_SIGN_PACKAGE_SCRIPT" server "$leaf_cn" "$p12_password"
         ;;
       3)
         require_intermediate_certificate || continue
         require_chain_file || continue
-        read -r -p "Admin common name: " leaf_cn
+        leaf_cn="$(prompt_with_default "Admin common name" "admin@example.org")"
         p12_password="$(read_p12_password 'P12 password: ')"
         run_script "$LEAF_CREATE_SIGN_PACKAGE_SCRIPT" admin "$leaf_cn" "$p12_password"
         ;;
       4)
         require_intermediate_certificate || continue
         require_chain_file || continue
-        read -r -p "Client common name: " leaf_cn
+        leaf_cn="$(prompt_with_default "Client common name" "client@example.org")"
         p12_password="$(read_p12_password 'P12 password: ')"
         run_script "$LEAF_CREATE_SIGN_PACKAGE_SCRIPT" client "$leaf_cn" "$p12_password"
         ;;
       5)
         require_intermediate_certificate || continue
-        read -r -p "Path to leaf CSR: " csr_path
+        csr_path="$(prompt_with_default "Path to leaf CSR" "${LEAF_OUTPUT_DIR:-${DEFAULT_PKI_BASE_DIR:-/opt/pki}/leaf}/server/csr/server.example.internal.csr.pem")"
         run_script "$LEAF_SIGN_CSR_SCRIPT" "$csr_path"
         ;;
       h|H)
@@ -195,6 +239,7 @@ EOF
 
 main() {
   require_root
+  set_default_intermediate_ca_env
 
   if [[ $# -gt 0 ]]; then
     case "$1" in

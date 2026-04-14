@@ -11,6 +11,24 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Leaf submenu is intentionally CSR-focused only.
 # Signing and packaging actions are performed in the intermediate menu.
 GENERATE_LEAF_CSR_SCRIPT="${SCRIPT_DIR}/generate_leaf_csr.sh"
+DEFAULT_PKI_BASE_DIR="${DEFAULT_PKI_BASE_DIR:-/opt/pki}"
+
+set_default_leaf_env() {
+  export INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR:-${DEFAULT_PKI_BASE_DIR}/intermediate-ca}"
+  export LEAF_OUTPUT_DIR="${LEAF_OUTPUT_DIR:-${DEFAULT_PKI_BASE_DIR}/leaf}"
+}
+
+prompt_with_default() {
+  local prompt="$1"
+  local default_value="$2"
+  local user_value
+
+  read -r -e -p "$prompt [$default_value]: " user_value
+  if [[ -z "$user_value" ]]; then
+    user_value="$default_value"
+  fi
+  printf '%s' "$user_value"
+}
 
 require_root() {
   if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
@@ -75,15 +93,15 @@ EOF
 
     case "$choice" in
       1)
-        read -r -p "Server common name: " leaf_cn
+        leaf_cn="$(prompt_with_default "Server common name" "server.example.internal")"
         run_script "$GENERATE_LEAF_CSR_SCRIPT" server "$leaf_cn"
         ;;
       2)
-        read -r -p "Admin common name: " leaf_cn
+        leaf_cn="$(prompt_with_default "Admin common name" "admin@example.org")"
         run_script "$GENERATE_LEAF_CSR_SCRIPT" admin "$leaf_cn"
         ;;
       3)
-        read -r -p "Client common name: " leaf_cn
+        leaf_cn="$(prompt_with_default "Client common name" "client@example.org")"
         run_script "$GENERATE_LEAF_CSR_SCRIPT" client "$leaf_cn"
         ;;
       h|H)
@@ -111,6 +129,7 @@ EOF
 
 main() {
   require_root
+  set_default_leaf_env
 
   if [[ $# -gt 0 ]]; then
     case "$1" in
