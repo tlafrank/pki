@@ -39,6 +39,7 @@ INTERMEDIATE_DAYS="3650"
 INTERMEDIATE_ORG="Example Org PKI"
 INTERMEDIATE_OU="Intermediate CA"
 INTERMEDIATE_CN="Example Intermediate CA"
+INTERMEDIATE_CA_NAME="${INTERMEDIATE_CA_NAME:-ca-example-intermediate-ca}"
 
 LEAF_DAYS="825"
 LEAF_ORG="Example Org PKI"
@@ -92,15 +93,15 @@ ROOT_CA_OUTPUT_DIR="${ROOT_CA_OUTPUT_DIR}" \
 ROOT_CA_CONFIG_FILE="${ROOT_CA_CONFIG_FILE}" \
 INTERMEDIATE_CA_NAME="${INTERMEDIATE_CA_NAME}" \
 DAYS="${INTERMEDIATE_DAYS}" ORG="${ROOT_ORG}" OU="${ROOT_OU}" CN="${ROOT_CN}" \
-"${SIGN_INTERMEDIATE_SCRIPT}" "${INTERMEDIATE_CA_OUTPUT_DIR}/csr/${INTERMEDIATE_CA_NAME}.csr.pem"
+"${SIGN_INTERMEDIATE_SCRIPT}" "${INTERMEDIATE_CA_OUTPUT_DIR}/csr/${INTERMEDIATE_CA_NAME}.csr"
 
 echo -e "${COLOR_HIGHLIGHT}[4/6]" "Copying root exports into intermediate CA folders${COLOR_RESET}"
 mkdir -p "${INTERMEDIATE_CA_OUTPUT_DIR}/certs" "${INTERMEDIATE_CA_OUTPUT_DIR}/exports"
 cp "${ROOT_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/${INTERMEDIATE_CA_NAME}.cert.pem"
-cp "${ROOT_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}-chain.cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/${INTERMEDIATE_CA_NAME}-chain.cert.pem"
-cp "${ROOT_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}-chain.cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}-chain.cert.pem"
-cp "${ROOT_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.truststore.jks" "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.truststore.jks"
-cp "${ROOT_CA_OUTPUT_DIR}/exports/root-ca.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/root-ca.pem"
+cp "${ROOT_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.chain.cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/${INTERMEDIATE_CA_NAME}.chain.cert.pem"
+cp "${ROOT_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.chain.cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.chain.cert.pem"
+cp "${ROOT_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.chain.jks" "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.chain.jks"
+cp "${ROOT_CA_OUTPUT_DIR}/exports/ca-root.cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/ca-root.cert.pem"
 
 echo -e "${COLOR_HIGHLIGHT}[5/6]" "Creating client and admin key/cert + p12 bundles${COLOR_RESET}"
 ALLOW_NON_ROOT="${ALLOW_NON_ROOT}" \
@@ -130,10 +131,10 @@ DAYS="${LEAF_DAYS}" ORG="${LEAF_ORG}" OU="${LEAF_OU}" CN="${LEAF_CN}" \
 
 echo -e "Copying p12 bundles from intermediate exports into leaf profile certs folders"
 mkdir -p "${LEAF_OUTPUT_DIR}/server/certs" "${LEAF_OUTPUT_DIR}/admin/certs" "${LEAF_OUTPUT_DIR}/client/certs"
-cp "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/server-${SERVER_CN}.p12" "${LEAF_OUTPUT_DIR}/server/certs/server-${SERVER_CN}.p12"
-cp "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/server-${SERVER_CN}.jks" "${LEAF_OUTPUT_DIR}/server/certs/server-${SERVER_CN}.jks"
-cp "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/admin-${ADMIN_CN}.p12" "${LEAF_OUTPUT_DIR}/admin/certs/admin-${ADMIN_CN}.p12"
-cp "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/client-${CLIENT_CN}.p12" "${LEAF_OUTPUT_DIR}/client/certs/client-${CLIENT_CN}.p12"
+cp "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/${SERVER_CN}.p12" "${LEAF_OUTPUT_DIR}/server/certs/${SERVER_CN}.p12"
+cp "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/${SERVER_CN}.jks" "${LEAF_OUTPUT_DIR}/server/certs/${SERVER_CN}.jks"
+cp "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/${ADMIN_CN}.p12" "${LEAF_OUTPUT_DIR}/admin/certs/${ADMIN_CN}.p12"
+cp "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/${CLIENT_CN}.p12" "${LEAF_OUTPUT_DIR}/client/certs/${CLIENT_CN}.p12"
 
 echo
 echo "Full PKI workflow completed successfully."

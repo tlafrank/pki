@@ -367,7 +367,7 @@ def batch_create_leaf_p12(req: CreateLeafBatchRequest) -> BatchCreateLeafRespons
             failures.append(f"{item.common_name} ({item.profile}): {message}")
             continue
 
-        expected_p12 = exports_dir / f"{item.profile}-{item.common_name}.p12"
+        expected_p12 = exports_dir / f"{item.common_name}.p12"
         if not expected_p12.exists():
             failures.append(
                 f"{item.common_name} ({item.profile}): expected output not found: {expected_p12}"
@@ -376,7 +376,7 @@ def batch_create_leaf_p12(req: CreateLeafBatchRequest) -> BatchCreateLeafRespons
 
         outputs: Dict[str, Path] = {"p12": expected_p12}
         if item.profile == "server":
-            expected_keystore = exports_dir / f"{item.profile}-{item.common_name}.keystore.jks"
+            expected_keystore = exports_dir / f"{item.common_name}.jks"
             if not expected_keystore.exists():
                 failures.append(
                     f"{item.common_name} ({item.profile}): expected output not found: {expected_keystore}"
@@ -409,7 +409,7 @@ def batch_create_leaf_p12(req: CreateLeafBatchRequest) -> BatchCreateLeafRespons
                 arcname = f"{_sanitize_filename(item.profile)}/{_sanitize_filename(path.name)}"
                 archive.write(path, arcname=arcname)
 
-        for truststore_path in sorted(exports_dir.glob("*.truststore.jks")):
+        for truststore_path in sorted(exports_dir.glob("*.chain.jks")):
             if truststore_path.is_file():
                 archive.write(truststore_path, arcname=_sanitize_filename(truststore_path.name))
 
