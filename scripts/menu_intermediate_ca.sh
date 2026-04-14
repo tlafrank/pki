@@ -9,7 +9,7 @@ set -euo pipefail
 # - scripts/sign_leaf_csr.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR="${SCRIPT_DIR}/../intermediate_ca"
+DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR="${DEFAULT_PKI_BASE_DIR:-/opt/pki}/intermediate-ca"
 # Intermediate CA submenu owns tasks performed by the intermediate tier:
 # - bootstrap intermediate CA key+CSR
 # - issue leaf credentials and package PKCS#12 bundles
