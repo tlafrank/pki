@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Script purpose:
+# - Generates/reuses leaf private keys and CSRs for server/admin/client profiles.
+# Interacts with:
+# - scripts/create_sign_package_leaf.sh, which calls this script for CSR creation.
+# - scripts/sign_leaf_csr.sh, which signs the generated CSR files.
+
 # --- User-tunable defaults -------------------------------------------------
 # This script creates a leaf private key and CSR for one of three profiles:
 #   server, admin, client.

@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Script purpose:
+# - Root-CA-focused submenu wrapper for creating root CA and signing intermediate CSRs.
+# Interacts with:
+# - scripts/create_root_ca.sh
+# - scripts/sign_intermediate_csr.sh
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_CA_CREATE_SCRIPT="${SCRIPT_DIR}/create_root_ca.sh"
 INTERMEDIATE_CA_SIGN_CSR_SCRIPT="${SCRIPT_DIR}/sign_intermediate_csr.sh"

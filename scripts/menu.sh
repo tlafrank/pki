@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Script purpose:
+# - Top-level interactive/CLI menu entrypoint for PKI workflows.
+# Interacts with:
+# - scripts/menu_root_ca.sh
+# - scripts/menu_intermediate_ca.sh
+# - scripts/menu_leaf.sh
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_MENU_SCRIPT="${SCRIPT_DIR}/menu_root_ca.sh"
 INTERMEDIATE_MENU_SCRIPT="${SCRIPT_DIR}/menu_intermediate_ca.sh"

@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Script purpose:
+# - Intermediate-CA submenu wrapper for creating intermediate CA state and issuing leaf artifacts.
+# Interacts with:
+# - scripts/create_intermediate_ca.sh
+# - scripts/create_sign_package_leaf.sh
+# - scripts/sign_leaf_csr.sh
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR="${SCRIPT_DIR}/../intermediate_ca"
 # Intermediate CA submenu owns tasks performed by the intermediate tier:
@@ -10,6 +17,16 @@ DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR="${SCRIPT_DIR}/../intermediate_ca"
 INTERMEDIATE_CA_CREATE_SCRIPT="${SCRIPT_DIR}/create_intermediate_ca.sh"
 LEAF_CREATE_SIGN_PACKAGE_SCRIPT="${SCRIPT_DIR}/create_sign_package_leaf.sh"
 LEAF_SIGN_CSR_SCRIPT="${SCRIPT_DIR}/sign_leaf_csr.sh"
+
+resolve_intermediate_ca_name() {
+  local intermediate_dir="${INTERMEDIATE_CA_OUTPUT_DIR:-$DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR}"
+  local name_file="$intermediate_dir/intermediate-ca.name"
+  if [[ -f "$name_file" ]]; then
+    tr -d '[:space:]' < "$name_file"
+    return 0
+  fi
+  echo "intermediate-ca"
+}
 
 require_root() {
   if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
@@ -37,16 +54,20 @@ run_script() {
 }
 
 require_chain_file() {
-  local chain_file="${INTERMEDIATE_CA_OUTPUT_DIR:-$DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR}/certs/ca-chain-cert.pem"
+  local intermediate_name
+  intermediate_name="$(resolve_intermediate_ca_name)"
+  local chain_file="${INTERMEDIATE_CA_OUTPUT_DIR:-$DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR}/certs/${intermediate_name}-chain.cert.pem"
   if [[ ! -f "$chain_file" ]]; then
     echo "Error: chain file not found: $chain_file" >&2
-    echo "Sign the intermediate CA first so ca-chain-cert.pem exists." >&2
+    echo "Sign the intermediate CA first so the chain file exists." >&2
     return 1
   fi
 }
 
 require_intermediate_certificate() {
-  local intermediate_cert="${INTERMEDIATE_CA_OUTPUT_DIR:-$DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR}/certs/intermediate-ca.cert.pem"
+  local intermediate_name
+  intermediate_name="$(resolve_intermediate_ca_name)"
+  local intermediate_cert="${INTERMEDIATE_CA_OUTPUT_DIR:-$DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR}/certs/${intermediate_name}.cert.pem"
   if [[ ! -f "$intermediate_cert" ]]; then
     echo "Error: intermediate CA certificate not found: $intermediate_cert" >&2
     echo "Sign the intermediate CA first." >&2

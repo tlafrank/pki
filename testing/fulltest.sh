@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Script purpose:
+# - Runs an end-to-end integration test of root -> intermediate -> leaf PKI workflows.
+# Interacts with:
+# - scripts/create_root_ca.sh
+# - scripts/create_intermediate_ca.sh
+# - scripts/sign_intermediate_csr.sh
+# - scripts/create_sign_package_leaf.sh
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SCRIPTS_DIR="${REPO_ROOT}/scripts"
@@ -42,6 +50,21 @@ ADMIN_CN="admin.fulltest.local"
 CLIENT_CN="client.fulltest.local"
 SERVER_SAN_IP="192.168.56.102"
 
+sanitize_name() {
+  local value="$1"
+  value="$(echo "$value" | tr '[:upper:]' '[:lower:]')"
+  value="$(echo "$value" | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
+  if [ -z "$value" ]; then
+    value="intermediate-ca"
+  fi
+  if [[ "$value" != *-intermediate-ca ]]; then
+    value="${value}-intermediate-ca"
+  fi
+  echo "$value"
+}
+
+INTERMEDIATE_CA_NAME="$(sanitize_name "${INTERMEDIATE_CN}")"
+
 if [ -t 1 ]; then
   COLOR_STEP='\033[1;36m'
   COLOR_POST='\033[1;35m'
@@ -76,6 +99,7 @@ echo "  ROOT_CA_CONFIG_FILE=${ROOT_CA_CONFIG_FILE}"
 echo "  INTERMEDIATE_CA_CONFIG_FILE=${INTERMEDIATE_CA_CONFIG_FILE}"
 echo "  ROOT_DAYS=${ROOT_DAYS}, ROOT_ORG=${ROOT_ORG}, ROOT_OU=${ROOT_OU}, ROOT_CN=${ROOT_CN}"
 echo "  INTERMEDIATE_DAYS=${INTERMEDIATE_DAYS}, INTERMEDIATE_ORG=${INTERMEDIATE_ORG}, INTERMEDIATE_OU=${INTERMEDIATE_OU}, INTERMEDIATE_CN=${INTERMEDIATE_CN}"
+echo "  INTERMEDIATE_CA_NAME=${INTERMEDIATE_CA_NAME}"
 echo "  LEAF_DAYS=${LEAF_DAYS}, LEAF_ORG=${LEAF_ORG}, LEAF_OU=${LEAF_OU}, LEAF_CN=${LEAF_CN}"
 echo "  SERVER_CN=${SERVER_CN}, ADMIN_CN=${ADMIN_CN}, CLIENT_CN=${CLIENT_CN}, SERVER_SAN_IP=${SERVER_SAN_IP}"
 
@@ -90,6 +114,7 @@ print_step "[2/6]" "Creating intermediate CA key + CSR"
 ALLOW_NON_ROOT="${ALLOW_NON_ROOT}" \
 INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR}" \
 INTERMEDIATE_CA_CONFIG_FILE="${INTERMEDIATE_CA_CONFIG_FILE}" \
+INTERMEDIATE_CA_NAME="${INTERMEDIATE_CA_NAME}" \
 DAYS="${INTERMEDIATE_DAYS}" ORG="${INTERMEDIATE_ORG}" OU="${INTERMEDIATE_OU}" CN="${INTERMEDIATE_CN}" \
 "${CREATE_INTERMEDIATE_SCRIPT}"
 
@@ -97,14 +122,16 @@ print_step "[3/6]" "Signing intermediate CA CSR with root CA"
 ALLOW_NON_ROOT="${ALLOW_NON_ROOT}" \
 ROOT_CA_OUTPUT_DIR="${ROOT_CA_OUTPUT_DIR}" \
 ROOT_CA_CONFIG_FILE="${ROOT_CA_CONFIG_FILE}" \
+INTERMEDIATE_CA_NAME="${INTERMEDIATE_CA_NAME}" \
 DAYS="${INTERMEDIATE_DAYS}" ORG="${ROOT_ORG}" OU="${ROOT_OU}" CN="${ROOT_CN}" \
-"${SIGN_INTERMEDIATE_SCRIPT}" "${INTERMEDIATE_CA_OUTPUT_DIR}/csr/intermediate-ca.csr.pem"
+"${SIGN_INTERMEDIATE_SCRIPT}" "${INTERMEDIATE_CA_OUTPUT_DIR}/csr/${INTERMEDIATE_CA_NAME}.csr.pem"
 
 print_step "[4/6]" "Copying root exports into intermediate CA folders"
 mkdir -p "${INTERMEDIATE_CA_OUTPUT_DIR}/certs" "${INTERMEDIATE_CA_OUTPUT_DIR}/exports"
-cp "${ROOT_CA_OUTPUT_DIR}/exports/intermediate-ca.cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/intermediate-ca.cert.pem"
-cp "${ROOT_CA_OUTPUT_DIR}/exports/ca-chain-cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/ca-chain-cert.pem"
-cp "${ROOT_CA_OUTPUT_DIR}/exports/ca-chain-cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/ca-chain-cert.pem"
+cp "${ROOT_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/${INTERMEDIATE_CA_NAME}.cert.pem"
+cp "${ROOT_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}-chain.cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/${INTERMEDIATE_CA_NAME}-chain.cert.pem"
+cp "${ROOT_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}-chain.cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}-chain.cert.pem"
+cp "${ROOT_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.truststore.jks" "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/${INTERMEDIATE_CA_NAME}.truststore.jks"
 cp "${ROOT_CA_OUTPUT_DIR}/exports/root-ca.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/root-ca.pem"
 
 print_step "[5/6]" "Creating client and admin key/cert + p12 bundles"
@@ -112,6 +139,7 @@ ALLOW_NON_ROOT="${ALLOW_NON_ROOT}" \
 INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR}" \
 LEAF_OUTPUT_DIR="${LEAF_OUTPUT_DIR}" \
 LEAF_CONFIG_FILE="${INTERMEDIATE_CA_CONFIG_FILE}" \
+INTERMEDIATE_CA_NAME="${INTERMEDIATE_CA_NAME}" \
 DAYS="${LEAF_DAYS}" ORG="${LEAF_ORG}" OU="${LEAF_OU}" CN="${LEAF_CN}" \
 "${CREATE_SIGN_PACKAGE_LEAF_SCRIPT}" client "${CLIENT_CN}" "${P12_PASSWORD}"
 
@@ -119,6 +147,7 @@ ALLOW_NON_ROOT="${ALLOW_NON_ROOT}" \
 INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR}" \
 LEAF_OUTPUT_DIR="${LEAF_OUTPUT_DIR}" \
 LEAF_CONFIG_FILE="${INTERMEDIATE_CA_CONFIG_FILE}" \
+INTERMEDIATE_CA_NAME="${INTERMEDIATE_CA_NAME}" \
 DAYS="${LEAF_DAYS}" ORG="${LEAF_ORG}" OU="${LEAF_OU}" CN="${LEAF_CN}" \
 "${CREATE_SIGN_PACKAGE_LEAF_SCRIPT}" admin "${ADMIN_CN}" "${P12_PASSWORD}"
 
@@ -127,6 +156,7 @@ ALLOW_NON_ROOT="${ALLOW_NON_ROOT}" \
 INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR}" \
 LEAF_OUTPUT_DIR="${LEAF_OUTPUT_DIR}" \
 LEAF_CONFIG_FILE="${INTERMEDIATE_CA_CONFIG_FILE}" \
+INTERMEDIATE_CA_NAME="${INTERMEDIATE_CA_NAME}" \
 DAYS="${LEAF_DAYS}" ORG="${LEAF_ORG}" OU="${LEAF_OU}" CN="${LEAF_CN}" \
 "${CREATE_SIGN_PACKAGE_LEAF_SCRIPT}" server "${SERVER_CN}" "${P12_PASSWORD}" --san-ip "${SERVER_SAN_IP}"
 

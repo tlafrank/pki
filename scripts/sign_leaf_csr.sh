@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Script purpose:
+# - Signs leaf CSRs with the intermediate CA while enforcing profile/SAN policy.
+# Interacts with:
+# - scripts/create_intermediate_ca.sh for intermediate-ca.name and CA material.
+# - scripts/create_sign_package_leaf.sh, which invokes this script during packaging.
+# - intermediate_ca/intermediate_ca.cnf for OpenSSL CA settings.
+
 # --- User-tunable defaults -------------------------------------------------
 # This script signs leaf CSRs with the intermediate CA.
 # You can override defaults at runtime, for example:
@@ -12,9 +19,14 @@ ORG="${ORG:-Example Org PKI}"
 OU="${OU:-Intermediate CA}"
 CN="${CN:-Example Intermediate CA}"
 INTERMEDIATE_CA_CONFIG_FILE="${INTERMEDIATE_CA_CONFIG_FILE:-${SCRIPT_DIR}/../intermediate_ca/intermediate_ca.cnf}"
+NAME_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/intermediate-ca.name"
+if [ -z "${INTERMEDIATE_CA_NAME:-}" ] && [ -f "$NAME_FILE" ]; then
+  INTERMEDIATE_CA_NAME="$(tr -d '[:space:]' < "$NAME_FILE")"
+fi
+INTERMEDIATE_CA_NAME="${INTERMEDIATE_CA_NAME:-intermediate-ca}"
 
 # --- Internal paths ---------------------------------------------------------
-INTERMEDIATE_CERT_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/intermediate-ca.cert.pem"
+INTERMEDIATE_CERT_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/${INTERMEDIATE_CA_NAME}.cert.pem"
 LEAF_CERTS_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/certs"
 LEAF_EXPORT_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/exports"
 
@@ -51,7 +63,7 @@ if [ ! -f "$INTERMEDIATE_CERT_FILE" ]; then
 fi
 
 # Export values consumed by $ENV::... references in intermediate_ca.cnf.
-export INTERMEDIATE_CA_OUTPUT_DIR DAYS ORG OU CN
+export INTERMEDIATE_CA_OUTPUT_DIR DAYS ORG OU CN INTERMEDIATE_CA_NAME
 
 # Ensure expected output directories exist.
 mkdir -p "$LEAF_CERTS_DIR" "$LEAF_EXPORT_DIR"
