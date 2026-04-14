@@ -27,10 +27,10 @@ sanitize_name() {
   value="$(echo "$value" | tr '[:upper:]' '[:lower:]')"
   value="$(echo "$value" | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
   if [ -z "$value" ]; then
-    value="intermediate-ca"
+    value="ca-intermediate"
   fi
-  if [[ "$value" != *-intermediate-ca ]]; then
-    value="${value}-intermediate-ca"
+  if [[ "$value" != ca-* ]]; then
+    value="ca-${value}"
   fi
   echo "$value"
 }
@@ -48,8 +48,8 @@ NEWCERTS_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/newcerts"
 PRIVATE_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/private"
 EXPORT_DIR="$INTERMEDIATE_CA_OUTPUT_DIR/exports"
 
-KEY_FILE="$PRIVATE_DIR/${INTERMEDIATE_CA_NAME}.key.pem"
-CSR_FILE="$CSR_DIR/${INTERMEDIATE_CA_NAME}.csr.pem"
+KEY_FILE="$PRIVATE_DIR/${INTERMEDIATE_CA_NAME}.key"
+CSR_FILE="$CSR_DIR/${INTERMEDIATE_CA_NAME}.csr"
 NAME_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/intermediate-ca.name"
 
 # Check that the script is being run as root.

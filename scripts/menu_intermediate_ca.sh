@@ -21,11 +21,21 @@ LEAF_SIGN_CSR_SCRIPT="${SCRIPT_DIR}/sign_leaf_csr.sh"
 resolve_intermediate_ca_name() {
   local intermediate_dir="${INTERMEDIATE_CA_OUTPUT_DIR:-$DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR}"
   local name_file="$intermediate_dir/intermediate-ca.name"
+  local raw_name
   if [[ -f "$name_file" ]]; then
-    tr -d '[:space:]' < "$name_file"
-    return 0
+    raw_name="$(tr -d '[:space:]' < "$name_file")"
+  else
+    raw_name="ca-intermediate"
   fi
-  echo "intermediate-ca"
+
+  raw_name="$(echo "$raw_name" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/^-+//; s/-+$//')"
+  if [[ -z "$raw_name" ]]; then
+    raw_name="ca-intermediate"
+  fi
+  if [[ "$raw_name" != ca-* ]]; then
+    raw_name="ca-${raw_name}"
+  fi
+  echo "$raw_name"
 }
 
 require_root() {
@@ -56,7 +66,7 @@ run_script() {
 require_chain_file() {
   local intermediate_name
   intermediate_name="$(resolve_intermediate_ca_name)"
-  local chain_file="${INTERMEDIATE_CA_OUTPUT_DIR:-$DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR}/certs/${intermediate_name}-chain.cert.pem"
+  local chain_file="${INTERMEDIATE_CA_OUTPUT_DIR:-$DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR}/certs/${intermediate_name}.chain.cert.pem"
   if [[ ! -f "$chain_file" ]]; then
     echo "Error: chain file not found: $chain_file" >&2
     echo "Sign the intermediate CA first so the chain file exists." >&2

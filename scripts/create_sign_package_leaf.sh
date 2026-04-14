@@ -36,10 +36,22 @@ CREATE_JKS_OUTPUT="${CREATE_JKS_OUTPUT:-1}"
 GENERATE_LEAF_CSR_SCRIPT="${SCRIPT_DIR}/generate_leaf_csr.sh"
 SIGN_LEAF_CSR_SCRIPT="${SCRIPT_DIR}/sign_leaf_csr.sh"
 NAME_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/intermediate-ca.name"
+normalize_ca_name() {
+  local value="$1"
+  value="$(echo "$value" | tr '[:upper:]' '[:lower:]')"
+  value="$(echo "$value" | sed -E 's/[^a-z0-9-]+/-/g; s/^-+//; s/-+$//')"
+  if [ -z "$value" ]; then
+    value="ca-intermediate"
+  fi
+  if [[ "$value" != ca-* ]]; then
+    value="ca-${value}"
+  fi
+  echo "$value"
+}
 if [ -z "${INTERMEDIATE_CA_NAME:-}" ] && [ -f "$NAME_FILE" ]; then
   INTERMEDIATE_CA_NAME="$(tr -d '[:space:]' < "$NAME_FILE")"
 fi
-INTERMEDIATE_CA_NAME="${INTERMEDIATE_CA_NAME:-intermediate-ca}"
+INTERMEDIATE_CA_NAME="$(normalize_ca_name "${INTERMEDIATE_CA_NAME:-ca-intermediate}")"
 
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
   if [ "${ALLOW_NON_ROOT:-0}" != "1" ]; then
@@ -97,11 +109,9 @@ mkdir -p "$INTERMEDIATE_EXPORT_DIR" "$INTERMEDIATE_TMP_DIR"
 KEY_FILE="$INTERMEDIATE_TMP_DIR/private/${LEAF_CN}.key.pem"
 CSR_FILE="$INTERMEDIATE_TMP_DIR/csr/${LEAF_CN}.csr.pem"
 CERT_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/${LEAF_CN}.cert.pem"
-P12_FILE="$INTERMEDIATE_EXPORT_DIR/${PROFILE}-${LEAF_CN}.p12"
-JKS_KEYSTORE_FILE="$INTERMEDIATE_EXPORT_DIR/${PROFILE}-${LEAF_CN}.keystore.jks"
-CHAIN_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/${INTERMEDIATE_CA_NAME}-chain.cert.pem"
-JKS_KEYSTORE_FILE="$INTERMEDIATE_EXPORT_DIR/${PROFILE}-${LEAF_CN}.jks"
-CHAIN_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/ca-chain-cert.pem"
+P12_FILE="$INTERMEDIATE_EXPORT_DIR/${LEAF_CN}.p12"
+JKS_KEYSTORE_FILE="$INTERMEDIATE_EXPORT_DIR/${LEAF_CN}.jks"
+CHAIN_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/${INTERMEDIATE_CA_NAME}.chain.cert.pem"
 
 if [ ! -f "$LEAF_CONFIG_FILE" ]; then
   echo "Error: OpenSSL intermediate CA config not found: $LEAF_CONFIG_FILE" >&2
