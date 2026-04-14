@@ -48,6 +48,18 @@ prompt_with_default() {
   printf '%s' "$user_value"
 }
 
+normalize_ca_name() {
+  local value="$1"
+  value="$(echo "$value" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/^-+//; s/-+$//')"
+  if [[ -z "$value" ]]; then
+    value="ca-intermediate"
+  fi
+  if [[ "$value" != ca-* ]]; then
+    value="ca-${value}"
+  fi
+  printf '%s' "$value"
+}
+
 resolve_intermediate_ca_name() {
   local intermediate_dir="${INTERMEDIATE_CA_OUTPUT_DIR:-$DEFAULT_INTERMEDIATE_CA_OUTPUT_DIR}"
   local name_file="$intermediate_dir/intermediate-ca.name"
@@ -172,7 +184,9 @@ EOF
 
     case "$choice" in
       1)
-        run_script "$INTERMEDIATE_CA_CREATE_SCRIPT"
+        intermediate_name="$(prompt_with_default "Intermediate CA name" "$(resolve_intermediate_ca_name)")"
+        intermediate_name="$(normalize_ca_name "$intermediate_name")"
+        INTERMEDIATE_CA_NAME="$intermediate_name" CN="${CN:-$intermediate_name}" run_script "$INTERMEDIATE_CA_CREATE_SCRIPT"
         ;;
       2)
         require_intermediate_certificate || continue
