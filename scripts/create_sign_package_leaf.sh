@@ -93,6 +93,8 @@ CERT_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/${LEAF_CN}.cert.pem"
 P12_FILE="$INTERMEDIATE_EXPORT_DIR/${PROFILE}-${LEAF_CN}.p12"
 JKS_KEYSTORE_FILE="$INTERMEDIATE_EXPORT_DIR/${PROFILE}-${LEAF_CN}.keystore.jks"
 CHAIN_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/${INTERMEDIATE_CA_NAME}-chain.cert.pem"
+JKS_KEYSTORE_FILE="$INTERMEDIATE_EXPORT_DIR/${PROFILE}-${LEAF_CN}.jks"
+CHAIN_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/ca-chain-cert.pem"
 
 if [ ! -f "$LEAF_CONFIG_FILE" ]; then
   echo "Error: OpenSSL intermediate CA config not found: $LEAF_CONFIG_FILE" >&2
@@ -178,3 +180,7 @@ echo "P12 file:    $P12_FILE"
 if [ "$CREATE_JKS_OUTPUT" = "1" ] && [ "$PROFILE" = "server" ]; then
   echo "JKS keystore:   $JKS_KEYSTORE_FILE"
 fi
+
+
+echo "Cleaning up tmp directory"
+rm -rf $INTERMEDIATE_TMP_BASE

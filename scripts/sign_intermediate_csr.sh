@@ -178,6 +178,49 @@ if [ "$CREATE_JKS_TRUSTSTORE" = "1" ]; then
   chmod 400 "$TRUSTSTORE_JKS_FILE"
 fi
 
+if [ "$CREATE_JKS_TRUSTSTORE" = "1" ]; then
+  if ! command -v keytool >/dev/null 2>&1; then
+    echo "Error: keytool is required to generate JKS truststore output." >&2
+    echo "Install a Java runtime/JDK or set CREATE_JKS_TRUSTSTORE=0." >&2
+    exit 1
+  fi
+
+  if [ -z "$TRUSTSTORE_PASSWORD" ] || [[ "$TRUSTSTORE_PASSWORD" =~ ^[[:space:]]+$ ]]; then
+    echo "Error: TRUSTSTORE_PASSWORD cannot be empty or whitespace-only." >&2
+    exit 1
+  fi
+
+  echo "Generating Java truststore (.jks) from CA chain"
+  rm -f "$TRUSTSTORE_JKS_FILE"
+
+  TMP_CHAIN_DIR="$(mktemp -d)"
+  csplit -s -z -f "$TMP_CHAIN_DIR/cert-" -b "%02d.pem" "$CHAIN_FILE" '/-----BEGIN CERTIFICATE-----/' '{*}' || true
+
+  cert_index=1
+  for cert_file in "$TMP_CHAIN_DIR"/cert-*.pem; do
+    [ -f "$cert_file" ] || continue
+    if ! grep -q -- '-----BEGIN CERTIFICATE-----' "$cert_file"; then
+      continue
+    fi
+    keytool -importcert \
+      -file "$cert_file" \
+      -keystore "$TRUSTSTORE_JKS_FILE" \
+      -storetype JKS \
+      -storepass "$TRUSTSTORE_PASSWORD" \
+      -alias "ca-chain-$cert_index" \
+      -noprompt
+    cert_index=$((cert_index + 1))
+  done
+  rm -rf "$TMP_CHAIN_DIR"
+
+  if [ "$cert_index" -eq 1 ]; then
+    echo "Error: no certificates were found in chain file: $CHAIN_FILE" >&2
+    exit 1
+  fi
+
+  chmod 400 "$TRUSTSTORE_JKS_FILE"
+fi
+
 echo
 
 echo "Intermediate CA certificate created successfully."
