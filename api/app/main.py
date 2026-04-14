@@ -335,9 +335,9 @@ def batch_create_leaf_p12(req: CreateLeafBatchRequest) -> BatchCreateLeafRespons
         env_base["ORG"] = req.org
 
     intermediate_dir = env_base.get("INTERMEDIATE_CA_OUTPUT_DIR", str(BASE_DIR / "intermediate_ca"))
-    leaf_base_dir = env_base.get("LEAF_OUTPUT_DIR", str(BASE_DIR / "leaf"))
+    exports_dir = Path(intermediate_dir) / "exports"
     failures: List[str] = []
-    generated: List[tuple[LeafBatchItem, Path]] = []
+    generated: List[tuple[LeafBatchItem, Dict[str, Path]]] = []
 
     for item in req.items:
         _validate_server_sans(item.profile, item.san_dns, item.san_ips)
@@ -367,13 +367,35 @@ def batch_create_leaf_p12(req: CreateLeafBatchRequest) -> BatchCreateLeafRespons
             failures.append(f"{item.common_name} ({item.profile}): {message}")
             continue
 
-        expected_p12 = Path(leaf_base_dir) / "exports" / f"{item.profile}-{item.common_name}.p12"
+        expected_p12 = exports_dir / f"{item.profile}-{item.common_name}.p12"
+        expected_keystore = exports_dir / f"{item.profile}-{item.common_name}.keystore.jks"
+        expected_truststore = exports_dir / f"{item.profile}-{item.common_name}.truststore.jks"
         if not expected_p12.exists():
             failures.append(
                 f"{item.common_name} ({item.profile}): expected output not found: {expected_p12}"
             )
             continue
-        generated.append((item, expected_p12))
+        if not expected_keystore.exists():
+            failures.append(
+                f"{item.common_name} ({item.profile}): expected output not found: {expected_keystore}"
+            )
+            continue
+        if not expected_truststore.exists():
+            failures.append(
+                f"{item.common_name} ({item.profile}): expected output not found: {expected_truststore}"
+            )
+            continue
+
+        generated.append(
+            (
+                item,
+                {
+                    "p12": expected_p12,
+                    "keystore_jks": expected_keystore,
+                    "truststore_jks": expected_truststore,
+                },
+            )
+        )
 
     if not generated:
         raise HTTPException(
@@ -389,13 +411,24 @@ def batch_create_leaf_p12(req: CreateLeafBatchRequest) -> BatchCreateLeafRespons
     zip_path = ARTIFACTS_DIR / zip_filename
 
     with ZipFile(zip_path, mode="w", compression=ZIP_DEFLATED) as archive:
-        for item, p12_path in generated:
-            arcname = f"{_sanitize_filename(item.profile)}/{_sanitize_filename(p12_path.name)}"
-            archive.write(p12_path, arcname=arcname)
+        for item, outputs in generated:
+            for path in outputs.values():
+                arcname = f"{_sanitize_filename(item.profile)}/{_sanitize_filename(path.name)}"
+                archive.write(path, arcname=arcname)
 
-        manifest_lines = ["profile,common_name,p12_filename"]
-        for item, p12_path in generated:
-            manifest_lines.append(f"{item.profile},{item.common_name},{p12_path.name}")
+        manifest_lines = ["profile,common_name,p12_filename,keystore_jks_filename,truststore_jks_filename"]
+        for item, outputs in generated:
+            manifest_lines.append(
+                ",".join(
+                    [
+                        item.profile,
+                        item.common_name,
+                        outputs["p12"].name,
+                        outputs["keystore_jks"].name,
+                        outputs["truststore_jks"].name,
+                    ]
+                )
+            )
         archive.writestr("manifest.csv", "\n".join(manifest_lines) + "\n")
 
     artifact_files[artifact_id] = zip_path

@@ -10,7 +10,7 @@ This repository now includes:
 
 - `api`: FastAPI service with in-memory queue + background worker thread.
 - `web`: static HTML/JS app hosted by NGINX in Docker.
-  - supports downloading a blank CSV batch template, importing populated CSV rows, and downloading a ZIP of generated P12 packages.
+  - supports downloading a blank CSV batch template, importing populated CSV rows, and downloading a ZIP of generated certificate packages.
 
 ## Run locally with Docker
 
@@ -36,7 +36,19 @@ docker compose up --build
 ## Key handling
 
 - `create_sign_package_leaf.sh` now deletes the generated leaf private key after successful PKCS#12 packaging by default.
+- `create_sign_package_leaf.sh` also emits Java keystore outputs by default:
+  - `<profile>-<common-name>.keystore.jks` (private key + certificate chain)
+  - `<profile>-<common-name>.truststore.jks` (CA trust chain)
 - To retain private keys on disk, set `DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING=0` before running the workflow.
+- To skip JKS generation, set `CREATE_JKS_OUTPUT=0` before running the workflow.
+
+## Dependency check
+
+Run the dependency checker script to verify required command-line tools and Python packages:
+
+```bash
+./scripts/check_dependencies.sh
+```
 
 ## Test API
 
