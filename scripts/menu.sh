@@ -12,6 +12,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_MENU_SCRIPT="${SCRIPT_DIR}/menu_root_ca.sh"
 INTERMEDIATE_MENU_SCRIPT="${SCRIPT_DIR}/menu_intermediate_ca.sh"
 LEAF_MENU_SCRIPT="${SCRIPT_DIR}/menu_leaf.sh"
+DEFAULT_PKI_BASE_DIR="${DEFAULT_PKI_BASE_DIR:-/opt/pki}"
+
+set_default_output_dirs() {
+  # Keep menu-driven workflows out of the git checkout by default.
+  export ROOT_CA_OUTPUT_DIR="${ROOT_CA_OUTPUT_DIR:-${DEFAULT_PKI_BASE_DIR}/root-ca}"
+  export INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR:-${DEFAULT_PKI_BASE_DIR}/intermediate-ca}"
+}
 
 require_root() {
   if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
@@ -109,6 +116,7 @@ EOF
 
 main() {
   require_root
+  set_default_output_dirs
 
   if [[ $# -gt 0 ]]; then
     case "$1" in
