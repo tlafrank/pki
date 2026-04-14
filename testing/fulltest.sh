@@ -88,7 +88,9 @@ mkdir -p "${INTERMEDIATE_CA_OUTPUT_DIR}/certs" "${INTERMEDIATE_CA_OUTPUT_DIR}/ex
 cp "${ROOT_CA_OUTPUT_DIR}/exports/intermediate-ca.cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/intermediate-ca.cert.pem"
 cp "${ROOT_CA_OUTPUT_DIR}/exports/ca-chain-cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/ca-chain-cert.pem"
 cp "${ROOT_CA_OUTPUT_DIR}/exports/ca-chain-cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/ca-chain-cert.pem"
+cp "${ROOT_CA_OUTPUT_DIR}/exports/ca-chain-cert.jks" "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/ca-chain-cert.jks"
 cp "${ROOT_CA_OUTPUT_DIR}/exports/root-ca.cert.pem" "${INTERMEDIATE_CA_OUTPUT_DIR}/certs/root-ca.cert.pem"
+
 
 echo -e "${COLOR_HIGHLIGHT}[5/6]" "Creating client and admin key/cert + p12 bundles${COLOR_RESET}"
 ALLOW_NON_ROOT="${ALLOW_NON_ROOT}" \
@@ -116,6 +118,7 @@ DAYS="${LEAF_DAYS}" ORG="${LEAF_ORG}" OU="${LEAF_OU}" CN="${LEAF_CN}" \
 echo -e "Copying p12 bundles from intermediate exports into leaf profile certs folders"
 mkdir -p "${LEAF_OUTPUT_DIR}/server/certs" "${LEAF_OUTPUT_DIR}/admin/certs" "${LEAF_OUTPUT_DIR}/client/certs"
 cp "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/server-${SERVER_CN}.p12" "${LEAF_OUTPUT_DIR}/server/certs/server-${SERVER_CN}.p12"
+cp "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/server-${SERVER_CN}.jks" "${LEAF_OUTPUT_DIR}/server/certs/server-${SERVER_CN}.jks"
 cp "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/admin-${ADMIN_CN}.p12" "${LEAF_OUTPUT_DIR}/admin/certs/admin-${ADMIN_CN}.p12"
 cp "${INTERMEDIATE_CA_OUTPUT_DIR}/exports/client-${CLIENT_CN}.p12" "${LEAF_OUTPUT_DIR}/client/certs/client-${CLIENT_CN}.p12"
 

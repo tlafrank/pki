@@ -86,7 +86,7 @@ KEY_FILE="$INTERMEDIATE_TMP_DIR/private/${LEAF_CN}.key.pem"
 CSR_FILE="$INTERMEDIATE_TMP_DIR/csr/${LEAF_CN}.csr.pem"
 CERT_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/${LEAF_CN}.cert.pem"
 P12_FILE="$INTERMEDIATE_EXPORT_DIR/${PROFILE}-${LEAF_CN}.p12"
-JKS_KEYSTORE_FILE="$INTERMEDIATE_EXPORT_DIR/${PROFILE}-${LEAF_CN}.keystore.jks"
+JKS_KEYSTORE_FILE="$INTERMEDIATE_EXPORT_DIR/${PROFILE}-${LEAF_CN}.jks"
 CHAIN_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/ca-chain-cert.pem"
 
 if [ ! -f "$LEAF_CONFIG_FILE" ]; then
@@ -172,3 +172,7 @@ echo "P12 file:    $P12_FILE"
 if [ "$CREATE_JKS_OUTPUT" = "1" ] && [ "$PROFILE" = "server" ]; then
   echo "JKS keystore:   $JKS_KEYSTORE_FILE"
 fi
+
+
+echo "Cleaning up tmp directory"
+rm -rf $INTERMEDIATE_TMP_BASE

@@ -18,7 +18,6 @@ ROOT_CA_CONFIG_FILE="${ROOT_CA_CONFIG_FILE:-${SCRIPT_DIR}/../root_ca/root_ca.cnf
 # OpenSSL's CA tooling expects these files/directories to exist.
 CERTS_DIR="$ROOT_CA_OUTPUT_DIR/certs"
 CRL_DIR="$ROOT_CA_OUTPUT_DIR/crl"
-CSR_DIR="$ROOT_CA_OUTPUT_DIR/csr"
 NEWCERTS_DIR="$ROOT_CA_OUTPUT_DIR/newcerts"
 PRIVATE_DIR="$ROOT_CA_OUTPUT_DIR/private"
 EXPORT_DIR="$ROOT_CA_OUTPUT_DIR/exports"
@@ -52,7 +51,6 @@ export ROOT_CA_OUTPUT_DIR DAYS ORG OU CN
 mkdir -p \
   "$CERTS_DIR" \
   "$CRL_DIR" \
-  "$CSR_DIR" \
   "$NEWCERTS_DIR" \
   "$PRIVATE_DIR" \
   "$EXPORT_DIR"

@@ -47,7 +47,7 @@ CERTS_DIR="$ROOT_CA_OUTPUT_DIR/certs"
 EXPORT_DIR="$ROOT_CA_OUTPUT_DIR/exports"
 INTERMEDIATE_CERT_FILE="$CERTS_DIR/intermediate-ca.cert.pem"
 CHAIN_FILE="$CERTS_DIR/ca-chain-cert.pem"
-TRUSTSTORE_JKS_FILE="$EXPORT_DIR/ca-chain.truststore.jks"
+TRUSTSTORE_JKS_FILE="$EXPORT_DIR/ca-chain-cert.jks"
 
 # Resolve the root CA OpenSSL config using a list of likely paths.
 if [ -n "${ROOT_CA_CONFIG_FILE:-}" ]; then
