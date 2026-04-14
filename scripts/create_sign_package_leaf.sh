@@ -25,8 +25,14 @@ INTERMEDIATE_CA_OUTPUT_DIR="${INTERMEDIATE_CA_OUTPUT_DIR:-${SCRIPT_DIR}/../inter
 LEAF_CONFIG_FILE="${LEAF_CONFIG_FILE:-${SCRIPT_DIR}/../intermediate_ca/intermediate_ca.cnf}"
 DAYS="${DAYS:-825}"
 DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING="${DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING:-1}"
+CREATE_JKS_OUTPUT="${CREATE_JKS_OUTPUT:-1}"
 GENERATE_LEAF_CSR_SCRIPT="${SCRIPT_DIR}/generate_leaf_csr.sh"
 SIGN_LEAF_CSR_SCRIPT="${SCRIPT_DIR}/sign_leaf_csr.sh"
+NAME_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/intermediate-ca.name"
+if [ -z "${INTERMEDIATE_CA_NAME:-}" ] && [ -f "$NAME_FILE" ]; then
+  INTERMEDIATE_CA_NAME="$(tr -d '[:space:]' < "$NAME_FILE")"
+fi
+INTERMEDIATE_CA_NAME="${INTERMEDIATE_CA_NAME:-intermediate-ca}"
 
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
   if [ "${ALLOW_NON_ROOT:-0}" != "1" ]; then
@@ -85,7 +91,8 @@ KEY_FILE="$INTERMEDIATE_TMP_DIR/private/${LEAF_CN}.key.pem"
 CSR_FILE="$INTERMEDIATE_TMP_DIR/csr/${LEAF_CN}.csr.pem"
 CERT_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/${LEAF_CN}.cert.pem"
 P12_FILE="$INTERMEDIATE_EXPORT_DIR/${PROFILE}-${LEAF_CN}.p12"
-CHAIN_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/ca-chain-cert.pem"
+JKS_KEYSTORE_FILE="$INTERMEDIATE_EXPORT_DIR/${PROFILE}-${LEAF_CN}.keystore.jks"
+CHAIN_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/${INTERMEDIATE_CA_NAME}-chain.cert.pem"
 
 if [ ! -f "$LEAF_CONFIG_FILE" ]; then
   echo "Error: OpenSSL intermediate CA config not found: $LEAF_CONFIG_FILE" >&2
@@ -94,7 +101,7 @@ fi
 
 if [ ! -f "$CHAIN_FILE" ]; then
   echo "Error: chain file not found: $CHAIN_FILE" >&2
-  echo "Sign the intermediate CA first so ca-chain-cert.pem exists." >&2
+  echo "Sign the intermediate CA first so the named chain file exists." >&2
   exit 1
 fi
 
@@ -105,6 +112,7 @@ LEAF_OUTPUT_DIR="$INTERMEDIATE_TMP_BASE" "$GENERATE_LEAF_CSR_SCRIPT" "$PROFILE" 
 # Sign the generated CSR with the intermediate CA.
 echo "Signing leaf CSR"
 INTERMEDIATE_CA_OUTPUT_DIR="$INTERMEDIATE_CA_OUTPUT_DIR" DAYS="$DAYS" INTERMEDIATE_CA_CONFIG_FILE="$LEAF_CONFIG_FILE" \
+  INTERMEDIATE_CA_NAME="$INTERMEDIATE_CA_NAME" \
   "$SIGN_LEAF_CSR_SCRIPT" "$CSR_FILE"
 
 # Build a password-protected PKCS#12 bundle with key + cert + chain.
@@ -116,6 +124,35 @@ openssl pkcs12 -export \
   -out "$P12_FILE" \
   -passout "pass:$P12_PASSWORD"
 chmod 400 "$P12_FILE"
+
+if [ "$CREATE_JKS_OUTPUT" = "1" ] && [ "$PROFILE" = "server" ]; then
+  if ! command -v keytool >/dev/null 2>&1; then
+    echo "Error: keytool is required to generate JKS outputs." >&2
+    echo "Install a Java runtime/JDK or set CREATE_JKS_OUTPUT=0." >&2
+    exit 1
+  fi
+
+  JKS_PASSWORD="${JKS_PASSWORD:-$P12_PASSWORD}"
+  if [ -z "$JKS_PASSWORD" ] || [[ "$JKS_PASSWORD" =~ ^[[:space:]]+$ ]]; then
+    echo "Error: JKS password cannot be empty or whitespace-only." >&2
+    exit 1
+  fi
+
+  rm -f "$JKS_KEYSTORE_FILE"
+
+  echo "Generating Java keystore (.jks) from PKCS#12 bundle"
+  keytool -importkeystore \
+    -srckeystore "$P12_FILE" \
+    -srcstoretype PKCS12 \
+    -srcstorepass "$P12_PASSWORD" \
+    -destkeystore "$JKS_KEYSTORE_FILE" \
+    -deststoretype JKS \
+    -deststorepass "$JKS_PASSWORD" \
+    -destkeypass "$JKS_PASSWORD" \
+    -noprompt
+
+  chmod 400 "$JKS_KEYSTORE_FILE"
+fi
 
 # Remove the plaintext private key after successful packaging by default.
 if [ "$DELETE_LEAF_PRIVATE_KEY_AFTER_PACKAGING" = "1" ]; then
@@ -138,3 +175,6 @@ else
 fi
 echo "Certificate: $CERT_FILE"
 echo "P12 file:    $P12_FILE"
+if [ "$CREATE_JKS_OUTPUT" = "1" ] && [ "$PROFILE" = "server" ]; then
+  echo "JKS keystore:   $JKS_KEYSTORE_FILE"
+fi
