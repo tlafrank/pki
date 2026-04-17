@@ -106,11 +106,19 @@ INTERMEDIATE_TMP_DIR="$INTERMEDIATE_TMP_BASE/$PROFILE"
 # Keep issued certs and p12 bundles under intermediate_ca/{certs,exports}.
 mkdir -p "$INTERMEDIATE_EXPORT_DIR" "$INTERMEDIATE_TMP_DIR"
 
+cleanup_tmp() {
+  if [ -n "${INTERMEDIATE_TMP_BASE:-}" ] && [ -d "$INTERMEDIATE_TMP_BASE" ]; then
+    rm -rf -- "$INTERMEDIATE_TMP_BASE"
+  fi
+}
+
+trap cleanup_tmp EXIT
+
 KEY_FILE="$INTERMEDIATE_TMP_DIR/private/${LEAF_CN}.key.pem"
 CSR_FILE="$INTERMEDIATE_TMP_DIR/csr/${LEAF_CN}.csr.pem"
 CERT_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/${LEAF_CN}.cert.pem"
 P12_FILE="$INTERMEDIATE_EXPORT_DIR/${LEAF_CN}.p12"
-JKS_KEYSTORE_FILE="$INTERMEDIATE_EXPORT_DIR/${LEAF_CN}.jks"
+JKS_KEYSTORE_FILE="${P12_FILE%.p12}.jks"
 CHAIN_FILE="$INTERMEDIATE_CA_OUTPUT_DIR/certs/${INTERMEDIATE_CA_NAME}.chain.cert.pem"
 
 if [ ! -f "$LEAF_CONFIG_FILE" ]; then
@@ -200,4 +208,4 @@ fi
 
 
 echo "Cleaning up tmp directory"
-rm -rf $INTERMEDIATE_TMP_BASE
+cleanup_tmp
